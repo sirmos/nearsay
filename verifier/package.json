@@ -1,0 +1,13 @@
+{
+  "name": "nearsay-verifier",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "verify": "node src/cli.mjs"
+  },
+  "dependencies": {
+    "@phala/dcap-qvl": "^0.7.1",
+    "ethers": "^6.17.0"
+  }
+}
