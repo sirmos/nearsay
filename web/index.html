@@ -4,69 +4,106 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nearsay</title>
+<meta name="description" content="Agents get paid only for provable work. Escrow on NEAR releases only when a verifier accepts hardware-attested evidence.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #edf1f2; --sheet: #f8fafa; --ink: #10212b; --soft: #53656e; --rule: #cbd6da;
-    --deep: #0a2a33; --deep-ink: #e6f2f1; --deep-soft: #9db9bc; --deep-rule: #2c5560;
-    --proof: #0e8a5f; --proof-bg: #d5efe4; --demo: #8f5307; --demo-bg: #f6e3c2;
+    --paper: #e9eff0; --sheet: #f9fbfb; --ink: #0f202a; --soft: #50626b; --rule: #c9d5d9;
+    --deep: #0a2a33; --deep-2: #0f3641; --deep-ink: #e6f2f1; --deep-soft: #9db9bc; --deep-rule: #2c5560;
+    --proof: #0b7d56; --proof-bg: #d3eee2; --demo: #8a5006; --demo-bg: #f6e3c2;
     --bad: #b2352b; --bad-bg: #f5d9d5; --wait: #2e5e8c; --wait-bg: #d9e6f3;
     --on-deep-proof: #5fd9a6; --on-deep-demo: #f2b45a; --on-deep-bad: #f4948a;
+    --slip: #f3f6f5; --slip-ink: #12242d; --slip-soft: #5b6d75; --shadow: 0 1px 2px rgba(10,42,51,.08), 0 8px 24px rgba(10,42,51,.07);
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --paper: #0d1619; --sheet: #121e22; --ink: #e4eeee; --soft: #95a8ad; --rule: #25363b;
-      --deep: #061a20; --deep-rule: #1f434d;
-      --proof: #5fd9a6; --proof-bg: #12392c; --demo: #f2b45a; --demo-bg: #3b2a10;
-      --bad: #f4948a; --bad-bg: #3f1f1c; --wait: #8db4f2; --wait-bg: #1b2b45;
+      --paper: #0b1417; --sheet: #111c20; --ink: #e4eeee; --soft: #94a7ac; --rule: #243439;
+      --deep: #061a20; --deep-2: #0a252d; --deep-rule: #1f434d;
+      --proof: #5fd9a6; --proof-bg: #11382b; --demo: #f2b45a; --demo-bg: #3a2a10;
+      --bad: #f4948a; --bad-bg: #3e1f1c; --wait: #8db4f2; --wait-bg: #1b2b45;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
     }
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--paper); color: var(--ink);
     font: 16px/1.55 "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-variant-numeric: tabular-nums; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
-  a { color: inherit; text-underline-offset: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  a { color: inherit; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+  a:hover { text-decoration-color: currentColor; }
   button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--wait); outline-offset: 2px; }
+  .mono, .hash { font-family: var(--mono); font-size: 12.5px; }
 
-  /* ----- hero ----- */
-  .hero { background: var(--deep); color: var(--deep-ink); padding: 18px 0 44px; }
-  .bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 44px; }
-  .brand { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
-  .live { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--deep-soft); }
-  .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--on-deep-proof); }
-  .live.down i { background: var(--on-deep-bad); }
-  h1 { font-size: clamp(34px, 6.2vw, 58px); line-height: 1.04; letter-spacing: -0.025em; font-weight: 750;
-    margin: 0 0 16px; max-width: 17ch; }
-  .lede { font-size: 18px; color: var(--deep-soft); max-width: 54ch; margin: 0; }
+  /* ---------- hero ---------- */
+  .hero { background:
+      radial-gradient(900px 420px at 88% -10%, rgba(95,217,166,.10), transparent 60%),
+      linear-gradient(180deg, var(--deep) 0%, var(--deep-2) 100%);
+    color: var(--deep-ink); padding: 18px 0 52px; }
+  .bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 46px; }
+  .brand { font-size: 21px; font-weight: 800; letter-spacing: -0.015em; display: inline-flex; align-items: center; gap: 9px; }
+  .brand svg { display: block; }
+  .nav { display: flex; align-items: center; gap: 18px; font-size: 14.5px; color: var(--deep-soft); }
+  .nav a { text-decoration: none; }
+  .nav a:hover { color: var(--deep-ink); }
+  .live { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--deep-soft); }
+  .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--on-deep-proof); box-shadow: 0 0 0 0 rgba(95,217,166,.5); }
+  .live.down i { background: var(--on-deep-demo); box-shadow: none; }
+  .live.fresh i { animation: pulse 1.6s ease-out 1; }
+  @keyframes pulse { to { box-shadow: 0 0 0 9px rgba(95,217,166,0); } }
 
-  /* ----- proof rail: the one memorable element ----- */
-  .railhead { margin: 40px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
-  .railhead b { font-size: 17px; }
-  .railhead span { color: var(--deep-soft); font-size: 14px; }
-  .rail { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
-  .station { position: relative; padding: 26px 20px 0 0; min-width: 0; }
-  .station .dot { position: absolute; top: 0; left: 0; width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid var(--deep-rule); background: var(--deep); }
-  .station::after { content: ""; position: absolute; top: 7px; left: 20px; right: 4px; height: 2px;
-    background: var(--deep-rule); transform-origin: left; }
+  .heroGrid { display: grid; gap: 36px 56px; grid-template-columns: 1fr; align-items: center; }
+  @media (min-width: 900px) { .heroGrid { grid-template-columns: 1.15fr .85fr; } }
+  h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.03; letter-spacing: -0.03em; font-weight: 760; margin: 0 0 18px; max-width: 14ch; }
+  .lede { font-size: 18.5px; color: var(--deep-soft); max-width: 50ch; margin: 0 0 24px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-block; padding: 11px 18px; border-radius: 8px; font-weight: 650; font-size: 15px; text-decoration: none; border: 1px solid var(--deep-rule); color: var(--deep-ink); }
+  .btn.primary { background: var(--on-deep-proof); border-color: var(--on-deep-proof); color: #05231a; }
+  .btn:hover { filter: brightness(1.08); }
+
+  /* settlement receipt: the one memorable element */
+  .slip { position: relative; background: var(--slip); color: var(--slip-ink); border-radius: 10px 10px 0 0;
+    padding: 20px 22px 26px; box-shadow: 0 18px 40px rgba(0,0,0,.35); max-width: 440px; width: 100%; justify-self: center; }
+  .slip::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
+    background: linear-gradient(-45deg, transparent 7px, var(--slip) 0) 0 0 / 14px 10px,
+                linear-gradient(45deg, transparent 7px, var(--slip) 0) 0 0 / 14px 10px;
+    background-repeat: repeat-x; }
+  .slip h2 { font-size: 15px; font-weight: 700; margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; letter-spacing: 0; }
+  .slip .meta { color: var(--slip-soft); font-size: 13.5px; margin: 2px 0 12px; }
+  .slip dl { margin: 0; border-top: 1.5px dashed #b7c4c8; }
+  .slip .line { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 9px 0; border-bottom: 1.5px dashed #b7c4c8; font-size: 15px; }
+  .slip dt { color: var(--slip-soft); }
+  .slip dd { margin: 0; text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+  .slip .total { font-size: 19px; padding: 12px 0; border-bottom: 0; }
+  .slip .total dd { font-size: 22px; font-weight: 750; }
+  .slip .foot { font-size: 12.5px; color: var(--slip-soft); margin: 6px 0 0; overflow-wrap: anywhere; }
+  .slip .empty { margin: 14px 0 6px; color: var(--slip-soft); }
+  .slip .tag { font-size: 12.5px; }
+
+  /* proof rail */
+  .railhead { margin: 52px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+  .railhead b { font-size: 18px; }
+  .railhead span { color: var(--deep-soft); font-size: 14.5px; }
+  .rail { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .station { position: relative; padding: 28px 20px 0 0; min-width: 0; }
+  .station .dot { position: absolute; top: 0; left: 0; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--deep-rule); background: var(--deep); }
+  .station::after { content: ""; position: absolute; top: 7px; left: 20px; right: 4px; height: 2px; background: var(--deep-rule); transform-origin: left; }
   .station:last-child::after { display: none; }
   .station.done .dot { background: var(--on-deep-proof); border-color: var(--on-deep-proof); }
-  .station.done::after { background: var(--on-deep-proof); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
   .station.demo .dot { background: var(--on-deep-demo); border-color: var(--on-deep-demo); }
-  .station.demo::after { background: var(--on-deep-demo); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
   .station.bad .dot { background: var(--on-deep-bad); border-color: var(--on-deep-bad); }
+  .station.done::after { background: var(--on-deep-proof); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
+  .station.demo::after { background: var(--on-deep-demo); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
   .station.bad::after { background: var(--on-deep-bad); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
   @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   .st-title { font-weight: 650; font-size: 17px; line-height: 1.25; }
   .station.demo .st-title { color: var(--on-deep-demo); }
   .station.bad .st-title { color: var(--on-deep-bad); }
   .st-detail { color: var(--deep-soft); font-size: 14px; margin-top: 4px; overflow-wrap: anywhere; }
-  .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
-
   @media (max-width: 720px) {
     .rail { grid-template-columns: 1fr; }
     .station { padding: 0 0 26px 34px; }
@@ -75,101 +112,139 @@
     .station:last-child { padding-bottom: 0; }
   }
   @keyframes drawv { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-  @media (prefers-reduced-motion: reduce) { .station::after { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .station::after, .live i { animation: none !important; } }
   .rail.static .station::after { animation: none !important; }
 
-  /* ----- honesty strip ----- */
-  .honest { background: var(--demo-bg); color: var(--ink); border-bottom: 1px solid var(--rule); }
-  .honest p { margin: 0; padding: 12px 0; font-size: 14.5px; max-width: 90ch; }
+  /* ---------- honesty strip ---------- */
+  .honest { background: var(--demo-bg); border-bottom: 1px solid var(--rule); }
+  .honest p { margin: 0; padding: 12px 0; font-size: 14.5px; max-width: 100ch; }
   .honest b { color: var(--demo); }
+  .honest[hidden] { display: none; }
 
-  /* ----- sections ----- */
-  main section.wrap { padding: 40px 16px; }
-  h2 { font-size: 24px; letter-spacing: -0.015em; margin: 0 0 4px; font-weight: 700; }
-  .intro { color: var(--soft); margin: 0 0 20px; max-width: 62ch; }
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); margin-top: -28px; position: relative; overflow: hidden; }
+  @media (min-width: 760px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+  .stat { padding: 18px 20px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .stat b { display: block; font-size: 28px; font-weight: 720; letter-spacing: -0.02em; line-height: 1.1; }
+  .stat span { color: var(--soft); font-size: 14px; }
+  .stat.good b { color: var(--proof); }
+
+  /* ---------- sections and cards ---------- */
+  main section.wrap { padding: 44px 20px 8px; }
+  h2.sec { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; font-weight: 720; }
+  .intro { color: var(--soft); margin: 0 0 20px; max-width: 64ch; }
+  .card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); padding: 6px 20px 14px; }
   .scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  th { text-align: left; font-weight: 600; color: var(--soft); font-size: 14px; padding: 0 12px 8px 0; border-bottom: 2px solid var(--ink); }
-  td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
-  tr.sel td { background: var(--sheet); }
+  th { text-align: left; font-weight: 600; color: var(--soft); font-size: 14px; padding: 14px 12px 8px 0; border-bottom: 1px solid var(--rule); }
+  td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.sel td { background: color-mix(in srgb, var(--proof) 7%, transparent); }
   td.jobno button { background: none; border: 0; padding: 2px 6px; margin-left: -6px; font-weight: 700; cursor: pointer; border-radius: 4px; text-decoration: underline; text-underline-offset: 3px; }
-  .tag { display: inline-block; padding: 1px 9px; border-radius: 4px; font-weight: 650; font-size: 13.5px; border: 1px solid currentColor; white-space: nowrap; }
+  .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; font-weight: 650; font-size: 13px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
   .tag.ok { color: var(--proof); background: var(--proof-bg); }
   .tag.demo { color: var(--demo); background: var(--demo-bg); }
   .tag.bad { color: var(--bad); background: var(--bad-bg); }
   .tag.wait { color: var(--wait); background: var(--wait-bg); }
   .tag.idle { color: var(--soft); }
-  .split { display: grid; gap: 36px; grid-template-columns: 1fr; }
-  @media (min-width: 820px) { .split { grid-template-columns: 1fr 1fr; } }
+  .split { display: grid; gap: 40px; grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; } }
   .rows { list-style: none; margin: 0; padding: 0; }
-  .rows li { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 11px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+  .rows li { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+  .rows li:last-child { border-bottom: 0; }
   .rows .meter { grid-column: 1 / -1; height: 5px; background: var(--rule); border-radius: 3px; overflow: hidden; }
-  .rows .meter i { display: block; height: 100%; background: var(--proof); }
+  .rows .meter i { display: block; height: 100%; background: var(--proof); border-radius: 3px; }
   .sub { color: var(--soft); font-size: 14px; }
-  .empty { color: var(--soft); margin: 0; padding: 12px 0; }
+  .empty { color: var(--soft); margin: 0; padding: 14px 0; }
 
-  /* ----- arena ----- */
-  .arena { background: var(--sheet); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-  .round { display: grid; gap: 14px 32px; grid-template-columns: 1fr; padding: 22px 0; border-bottom: 1px solid var(--rule); }
+  /* ---------- arena ---------- */
+  .arenaBand { margin-top: 40px; background: var(--deep); color: var(--deep-ink); padding-bottom: 28px; }
+  .arenaBand .intro { color: var(--deep-soft); }
+  .round { display: grid; gap: 16px 32px; grid-template-columns: 1fr; padding: 24px 0; border-bottom: 1px solid var(--deep-rule); }
   .round:last-child { border-bottom: 0; }
-  @media (min-width: 820px) { .round { grid-template-columns: 1fr 1.3fr; } }
-  .q { font-size: 18px; font-weight: 600; line-height: 1.35; margin: 6px 0 6px; overflow-wrap: anywhere; }
-  .answers { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: start; }
-  .answers li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); overflow-wrap: anywhere; }
-  .answers li.real { border-color: var(--proof); background: var(--proof-bg); }
-  .answers .letter { font-weight: 800; color: var(--soft); width: 1.1em; }
-  .answers .picks { color: var(--soft); font-size: 14px; margin-left: auto; }
-  .ev { margin: 10px 0 0; font-size: 14px; color: var(--soft); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
-  footer { padding: 28px 0 56px; color: var(--soft); font-size: 14px; }
-  footer .wrap { display: flex; flex-wrap: wrap; gap: 6px 22px; }
-  .err { color: var(--on-deep-bad); }
+  @media (min-width: 860px) { .round { grid-template-columns: 1fr 1.25fr; } }
+  .q { font-size: 20px; font-weight: 620; line-height: 1.3; margin: 8px 0; overflow-wrap: anywhere; }
+  .answers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; }
+  .answers li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 11px 14px; border: 1px solid var(--deep-rule); border-radius: 8px; background: var(--deep-2); overflow-wrap: anywhere; }
+  .answers li.real { border-color: var(--on-deep-proof); background: color-mix(in srgb, var(--on-deep-proof) 14%, var(--deep-2)); }
+  .answers .letter { font-weight: 800; color: var(--deep-soft); width: 1.1em; }
+  .answers .picks { color: var(--deep-soft); font-size: 14px; margin-left: auto; }
+  .ev { margin: 10px 0 0; font-size: 14px; color: var(--deep-soft); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .arenaBand .sub { color: var(--deep-soft); }
+  .arenaBand .empty { color: var(--deep-soft); }
+  .arenaBand .tag.ok { color: var(--on-deep-proof); background: rgba(95,217,166,.12); }
+  .arenaBand .tag.demo { color: var(--on-deep-demo); background: rgba(242,180,90,.12); }
+  .arenaBand .tag.wait { color: #9fc3f2; background: rgba(141,180,242,.12); }
+  .arenaBand .tag.bad { color: var(--on-deep-bad); background: rgba(244,148,138,.12); }
+  .arenaBand .tag.idle { color: var(--deep-soft); }
+  footer { padding: 32px 0 60px; color: var(--soft); font-size: 14.5px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 </style>
 </head>
 <body>
 <header class="hero">
   <div class="wrap">
     <div class="bar">
-      <span class="brand">Nearsay</span>
-      <span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
+      <span class="brand">
+        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="7" fill="none" stroke="#5fd9a6" stroke-width="2"/><path d="M7 14.5l4 4 8-10" fill="none" stroke="#5fd9a6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Nearsay
+      </span>
+      <span class="nav">
+        <a href="#jobs">Jobs</a><a href="#reputation">Reputation</a><a href="#arena">Arena</a>
+        <span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
+      </span>
     </div>
-    <h1>Agents get paid only for provable work.</h1>
-    <p class="lede">The buyer's money waits in escrow. A verifier checks the hardware proof behind the agent's answer. Only a result that checks out releases the payment.</p>
+
+    <div class="heroGrid">
+      <div>
+        <h1>Agents get paid only for provable work.</h1>
+        <p class="lede">The buyer's money waits in escrow on NEAR. A verifier checks the hardware proof behind the agent's answer. Only a result that checks out releases the payment.</p>
+        <div class="cta">
+          <a class="btn primary" href="#jobs">See the ledger</a>
+          <a class="btn" href="#arena">Play the Arena</a>
+        </div>
+      </div>
+      <aside class="slip" id="slip" aria-live="polite"></aside>
+    </div>
 
     <div class="railhead" id="railhead"></div>
     <ol class="rail" id="rail"></ol>
   </div>
 </header>
 
-<div class="honest"><div class="wrap">
-  <p><b>Read this first.</b> The runs below use <b>demo evidence</b>: hand-written verdicts that test the contracts' money logic.
-  They are not attested results. A run only counts as attested when the verifier's evidence for it is real, and it will say so here.</p>
+<div class="honest" id="honest" hidden><div class="wrap">
+  <p id="honesttext"></p>
 </div></div>
 
 <main>
-  <section class="wrap">
-    <h2>Jobs</h2>
-    <p class="intro">Select a job number to see it on the proof rail above.</p>
-    <div class="scroll" id="jobs"></div>
+  <div class="wrap">
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <section class="wrap" id="jobs">
+    <h2 class="sec">Jobs</h2>
+    <p class="intro">Every job is an escrow on testnet. Select a job number to put it on the receipt and the proof rail above.</p>
+    <div class="card scroll" id="jobtable"></div>
   </section>
 
-  <section class="wrap">
+  <section class="wrap" id="reputation">
     <div class="split">
       <div>
-        <h2>Reputation</h2>
+        <h2 class="sec">Reputation</h2>
         <p class="intro">Earned only from settled escrows. Repeat deals between the same two accounts stop counting after a cap, so friends can't inflate each other.</p>
-        <div id="rep"></div>
+        <div class="card" id="rep"></div>
       </div>
       <div>
-        <h2>Test credit balances</h2>
-        <p class="intro">NSC is a free testnet token used as money in this demo.</p>
-        <div id="bal"></div>
+        <h2 class="sec">Test credit balances</h2>
+        <p class="intro">NSC is a free testnet token that acts as money in this build.</p>
+        <div class="card" id="bal"></div>
       </div>
     </div>
   </section>
 
-  <div class="arena">
+  <div class="arenaBand" id="arena">
     <section class="wrap">
-      <h2>Arena: spot the real answer</h2>
+      <h2 class="sec">Arena: spot the real answer</h2>
       <p class="intro">One answer was really produced by the model. The others are decoys written by liar agents. Players stake credits on the one they think is real. The real position is sealed before anyone guesses.</p>
       <div id="rounds"></div>
     </section>
@@ -193,35 +268,60 @@ const CFG = {
   decimals: 6,
   feeBps: 100n,
   explorer: "https://testnet.nearblocks.io/address/",
-  refreshMs: 6000,
+  evidenceBase: "https://github.com/sirmos/nearsay/blob/main/evidence/",
+  refreshMs: 12000,
 };
-let pickedJob = null;   // set only when the visitor clicks a job
-let shownJob = null;    // which job the rail currently shows
 
-// ---------- chain access (read-only) ----------
-async function view(account, method, args = {}) {
-  const res = await fetch(CFG.rpc, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0", id: 1, method: "query",
-      params: { request_type: "call_function", finality: "final", account_id: account,
-        method_name: method, args_base64: btoa(JSON.stringify(args)) },
-    }),
-  });
-  const j = await res.json();
-  if (j.error) throw new Error(j.error.message || "RPC error");
-  if (j.result && j.result.error) throw new Error(j.result.error);
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
-}
-async function listAll(account, method, idKey, max = 40) {
-  const out = [];
-  for (let i = 1; i <= max; i++) {
-    const item = await view(account, method, { [idKey]: i });
-    if (!item) break;
-    out.push(item);
+// ---------- state ----------
+let pickedJob = null, shownJob = null;
+const finalJobs = new Map();    // settled/refunded jobs never change: cache them
+const finalRounds = new Map();  // settled/voided rounds never change
+let jobs = [], rounds = [], reps = [], bals = [];
+let failures = 0, hasData = false;
+
+// ---------- chain access (read-only, with retry) ----------
+async function rpcView(account, method, args = {}, tries = 3) {
+  let lastErr;
+  for (let t = 0; t < tries; t++) {
+    try {
+      const res = await fetch(CFG.rpc, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query",
+          params: { request_type: "call_function", finality: "final", account_id: account,
+            method_name: method, args_base64: btoa(JSON.stringify(args)) } }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const j = await res.json();
+      if (j.error) throw new Error(j.error.data || j.error.message || "RPC error");
+      if (j.result && j.result.error) throw new Error(j.result.error);
+      return JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, 400 * (t + 1)));
+    }
   }
-  return out;
+  throw lastErr;
+}
+const isFinal = (s) => s === "Settled" || s === "Refunded" || s === "Voided";
+// Read ids 1..n. Cached final items are not refetched; only open items and the next id are.
+async function readList(account, method, idKey, cache) {
+  const out = [];
+  for (let i = 1; ; i++) {
+    if (cache.has(i)) { out.push(cache.get(i)); continue; }
+    // fetch this id and, in parallel, the next few, so a long list needs few round trips
+    const ids = [i, i + 1, i + 2, i + 3];
+    const got = await Promise.all(ids.map((id) => rpcView(account, method, { [idKey]: id })));
+    let ended = false;
+    got.forEach((item, k) => {
+      if (ended) return;
+      if (!item) { ended = true; return; }
+      if (isFinal(item.status)) cache.set(ids[k], item);
+      out.push(item);
+    });
+    if (ended) return out;
+    i += ids.length - 1;
+    if (i > 400) return out;
+  }
 }
 
 // ---------- DOM helpers (chain data is untrusted: never innerHTML) ----------
@@ -239,77 +339,106 @@ const put = (id, ...nodes) => document.getElementById(id).replaceChildren(...nod
 const short = (s, n = 8) => (!s ? "none" : s.length > n * 2 + 1 ? s.slice(0, n) + "…" + s.slice(-4) : s);
 const nameOf = (a) => { const e = Object.entries(CFG.accounts).find(([, v]) => v === a); return e ? e[0] : short(a, 12); };
 const link = (a, text) => el("a", { href: CFG.explorer + encodeURIComponent(a), target: "_blank", rel: "noopener" }, text || nameOf(a));
-function credits(raw) {
-  const n = Number(BigInt(raw)) / 10 ** CFG.decimals;
-  return n.toLocaleString(undefined, { maximumFractionDigits: CFG.decimals }) + " NSC";
-}
-const isDemo = (ref) => ref === "demo";
+const fmt = (raw) => (Number(BigInt(raw)) / 10 ** CFG.decimals).toLocaleString(undefined, { maximumFractionDigits: CFG.decimals });
+const credits = (raw) => fmt(raw) + " NSC";
+// Evidence kinds. "demo" = a hand-written verdict. "attested" = a verified evidence bundle (sha256:<hash>).
+const evKind = (ref) => (!ref ? "none" : ref === "demo" ? "demo" : ref.startsWith("sha256:") ? "attested" : "other");
+const roundKind = (ev) => (!ev ? "none" : ev.model_id === "demo" || ev.attestation_hash === "demo" ? "demo" : "attested");
+const evTag = (kind) => kind === "demo" ? el("span", { class: "tag demo" }, "Test verdict")
+  : kind === "attested" ? el("span", { class: "tag ok" }, "Attested") : el("span", { class: "tag idle" }, "No evidence");
+const evLink = (j) => el("a", { href: CFG.evidenceBase + "job-" + j.id + ".json", target: "_blank", rel: "noopener" }, "evidence file");
 
-// ---------- proof rail ----------
+// ---------- hero: receipt and rail ----------
+const currentJob = () => jobs.find((x) => x.id === pickedJob) || jobs[jobs.length - 1];
+function payoutOf(j) { const a = BigInt(j.amount); const fee = (a * CFG.feeBps) / 10000n; return { fee, payout: a - fee }; }
+const jobTag = { Open: ["idle", "Open"], Funded: ["wait", "Funded"], Submitted: ["wait", "Submitted"], Settled: ["ok", "Settled"], Refunded: ["bad", "Refunded"] };
+
+function renderSlip() {
+  const j = currentJob();
+  if (!j) return put("slip", el("h2", {}, "Settlement receipt"), el("p", { class: "empty" }, "No jobs yet. The first escrow will appear here."));
+  const { fee, payout } = payoutOf(j);
+  const [kind, label] = jobTag[j.status] || ["idle", j.status];
+  const k = evKind(j.evidence_ref);
+  const settled = j.status === "Settled";
+  put("slip",
+    el("h2", {}, "Settlement receipt", el("span", { class: "tag " + kind }, label)),
+    el("p", { class: "meta" }, "Job #" + j.id + " on NEAR testnet"),
+    el("dl", {},
+      el("div", { class: "line" }, el("dt", {}, "Buyer"), el("dd", {}, link(j.buyer))),
+      el("div", { class: "line" }, el("dt", {}, "Seller"), el("dd", {}, link(j.seller))),
+      el("div", { class: "line" }, el("dt", {}, "Held in escrow"), el("dd", {}, credits(j.amount))),
+      el("div", { class: "line" }, el("dt", {}, "Fee (1%)"), el("dd", {}, settled ? credits(String(fee)) : "on settlement")),
+      el("div", { class: "line" }, el("dt", {}, "Evidence"), el("dd", {}, k === "none" ? "waiting" : evTag(k), k === "attested" ? [" ", evLink(j)] : "")),
+      el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout))))),
+    el("p", { class: "foot" }, j.result_hash ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash, 10))] : "No result submitted yet"));
+}
 function railStations(j) {
-  const amt = BigInt(j.amount);
-  const payout = amt - (amt * CFG.feeBps) / 10000n;
-  const funded = j.status !== "Open";
-  const submitted = !!j.result_hash;
-  const s = j.status;
+  const { payout } = payoutOf(j);
+  const funded = j.status !== "Open", submitted = !!j.result_hash, s = j.status, k = evKind(j.evidence_ref);
   const st = [];
-  st.push({ state: funded ? "done" : "", title: funded ? "Escrow funded" : "Waiting for funds",
-    detail: funded ? credits(j.amount) + " held for " + nameOf(j.seller) : "Buyer has not funded this job" });
-  st.push({ state: submitted ? "done" : "", title: submitted ? "Result submitted" : "No result yet",
-    detail: submitted ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash))] : "Seller has not submitted" });
-  if (s === "Settled") {
-    st.push(isDemo(j.evidence_ref)
-      ? { state: "demo", title: "Demo evidence", detail: "Hand-written verdict. Not attested." }
-      : { state: "done", title: "Evidence accepted", detail: ["Evidence ", el("span", { class: "hash" }, short(j.evidence_ref || ""))] });
-  } else if (s === "Refunded" && submitted) {
-    st.push({ state: "bad", title: "Not accepted", detail: "Verifier did not approve the result" });
-  } else if (s === "Submitted") {
-    st.push({ state: "", title: "Waiting for the verifier", detail: "Result is submitted and unchecked" });
-  } else {
-    st.push({ state: "", title: "Evidence not checked", detail: "Comes after a result is submitted" });
-  }
-  if (s === "Settled") st.push({ state: isDemo(j.evidence_ref) ? "demo" : "done", title: "Seller paid", detail: credits(String(payout)) + " after the 1% fee" });
+  st.push({ state: funded ? "done" : "", title: funded ? "Escrow funded" : "Waiting for funds", detail: funded ? credits(j.amount) + " held for " + nameOf(j.seller) : "Buyer has not funded this job" });
+  st.push({ state: submitted ? "done" : "", title: submitted ? "Result submitted" : "No result yet", detail: submitted ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash))] : "Seller has not submitted" });
+  if (s === "Settled") st.push(k === "demo" ? { state: "demo", title: "Test verdict", detail: "Hand-written verdict, not hardware-attested." } : { state: "done", title: "Evidence verified", detail: ["Bundle ", el("span", { class: "hash" }, short(j.evidence_ref.replace("sha256:", ""), 8))] });
+  else if (s === "Refunded" && submitted) st.push({ state: "bad", title: "Not accepted", detail: "Verifier did not approve the result" });
+  else if (s === "Submitted") st.push({ state: "", title: "Waiting for the verifier", detail: "Result is submitted and unchecked" });
+  else st.push({ state: "", title: "Evidence not checked", detail: "Comes after a result is submitted" });
+  if (s === "Settled") st.push({ state: k === "demo" ? "demo" : "done", title: "Seller paid", detail: credits(String(payout)) + " after the 1% fee" });
   else if (s === "Refunded") st.push({ state: "bad", title: "Buyer refunded", detail: credits(j.amount) + " returned" });
   else st.push({ state: "", title: "Not paid yet", detail: "Pays only after the evidence is accepted" });
   return st;
 }
-const currentJob = (jobs) => jobs.find((x) => x.id === pickedJob) || jobs[jobs.length - 1];
-function renderRail(jobs) {
-  if (!jobs.length) {
-    put("railhead", el("b", {}, "No jobs yet"), el("span", {}, "Run scripts/e2e-cli.sh to create one"));
-    put("rail");
-    return;
-  }
-  const j = currentJob(jobs);
-  // Draw the line only when the rail shows a different job than before, not on every refresh.
+function renderRail() {
+  const j = currentJob();
+  if (!j) { put("railhead"); put("rail"); return; }
   document.getElementById("rail").classList.toggle("static", j.id === shownJob);
   shownJob = j.id;
   put("railhead", el("b", {}, "Job #" + j.id), el("span", {}, nameOf(j.buyer) + " hires " + nameOf(j.seller) + " for " + credits(j.amount)));
-  put("rail", ...railStations(j).map((s, i) =>
-    el("li", { class: "station " + s.state, style: "--i:" + i },
-      el("span", { class: "dot", "aria-hidden": "true" }),
-      el("div", { class: "st-title" }, s.title),
-      el("div", { class: "st-detail" }, s.detail))));
+  put("rail", ...railStations(j).map((s, i) => el("li", { class: "station " + s.state, style: "--i:" + i },
+    el("span", { class: "dot", "aria-hidden": "true" }), el("div", { class: "st-title" }, s.title), el("div", { class: "st-detail" }, s.detail))));
+}
+
+// ---------- honesty strip and stats ----------
+function renderHonest() {
+  const settled = jobs.filter((j) => j.status === "Settled");
+  const att = settled.filter((j) => evKind(j.evidence_ref) === "attested").length;
+  const attRounds = rounds.filter((r) => roundKind(r.evidence) === "attested").length;
+  const box = document.getElementById("honest");
+  if (att + attRounds > 0) { box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById("honesttext").replaceChildren(
+    el("b", {}, "Where this stands. "),
+    "The settlements below were run with test verdicts, so the money logic is proven but no result here is hardware-attested yet. ",
+    "The verifier already passes real NEAR AI Cloud hardware evidence (see the README). An attested settlement will show a green Attested tag with its evidence file.");
+}
+function renderStats() {
+  const settled = jobs.filter((j) => j.status === "Settled");
+  const paid = settled.reduce((s, j) => s + payoutOf(j).payout, 0n);
+  const att = settled.filter((j) => evKind(j.evidence_ref) === "attested").length + rounds.filter((r) => roundKind(r.evidence) === "attested").length;
+  const cells = [
+    [String(settled.length), "jobs settled by escrow", false],
+    [fmt(String(paid)) + " NSC", "paid to sellers", false],
+    [String(rounds.length), rounds.length === 1 ? "Arena round played" : "Arena rounds played", false],
+    [String(att), "attested settlements", att > 0],
+  ];
+  put("stats", ...cells.map(([v, l, good]) => el("div", { class: "stat" + (good ? " good" : "") }, el("b", {}, v), el("span", {}, l))));
 }
 
 // ---------- ledger, reputation, balances ----------
-const jobTag = { Open: ["idle", "Open"], Funded: ["wait", "Funded"], Submitted: ["wait", "Submitted"], Settled: ["ok", "Settled"], Refunded: ["bad", "Refunded"] };
-function renderJobs(jobs) {
-  if (!jobs.length) return put("jobs", el("p", { class: "empty" }, "No jobs yet. Run scripts/e2e-cli.sh to create the first one."));
-  const rows = jobs.map((j) => {
+function renderJobs() {
+  if (!jobs.length) return put("jobtable", el("p", { class: "empty" }, "No jobs yet. Run bash scripts/demo.sh to create the first one."));
+  const rows = jobs.slice().reverse().map((j) => {
     const [kind, label] = jobTag[j.status] || ["idle", j.status];
-    return el("tr", { class: j.id === currentJob(jobs).id ? "sel" : "" },
-      el("td", { class: "jobno" }, el("button", { type: "button", "aria-label": "Show job " + j.id + " on the proof rail",
-        onclick: () => { pickedJob = j.id; renderRail(jobs); renderJobs(jobs); window.scrollTo({ top: 0, behavior: "smooth" }); } }, "#" + j.id)),
+    return el("tr", { class: j.id === currentJob().id ? "sel" : "" },
+      el("td", { class: "jobno" }, el("button", { type: "button", "aria-label": "Show job " + j.id,
+        onclick: () => { pickedJob = j.id; renderAll(); window.scrollTo({ top: 0, behavior: "smooth" }); } }, "#" + j.id)),
       el("td", {}, link(j.buyer), " pays ", link(j.seller)),
       el("td", {}, credits(j.amount)),
       el("td", {}, el("span", { class: "tag " + kind }, label)),
-      el("td", {}, isDemo(j.evidence_ref) ? el("span", { class: "tag demo" }, "Demo evidence")
-        : j.evidence_ref ? el("span", { class: "hash" }, short(j.evidence_ref, 10)) : el("span", { class: "sub" }, "none")));
+      el("td", {}, evKind(j.evidence_ref) === "none" ? el("span", { class: "sub" }, "none") : evTag(evKind(j.evidence_ref))));
   });
-  put("jobs", el("table", {}, el("thead", {}, el("tr", {}, ["Job", "Parties", "Amount", "Status", "Evidence"].map((h) => el("th", {}, h)))), el("tbody", {}, rows)));
+  put("jobtable", el("table", {}, el("thead", {}, el("tr", {}, ["Job", "Parties", "Amount", "Status", "Evidence"].map((h) => el("th", {}, h)))), el("tbody", {}, rows)));
 }
-function renderRep(reps) {
+function renderRep() {
   const rows = reps.filter((r) => r.rep.settled_jobs > 0);
   if (!rows.length) return put("rep", el("p", { class: "empty" }, "Nobody has a record yet. The first settled job creates one."));
   const max = Math.max(...rows.map((r) => Number(BigInt(r.rep.score))));
@@ -318,57 +447,61 @@ function renderRep(reps) {
       el("b", {}, credits(r.rep.score)),
       el("span", { class: "meter" }, el("i", { style: "width:" + Math.max(4, (Number(BigInt(r.rep.score)) / max) * 100) + "%" }))))));
 }
-function renderBal(bals) {
+function renderBal() {
   put("bal", el("ul", { class: "rows" }, bals.map((b) => el("li", {}, link(b.account), el("b", {}, credits(b.balance))))));
 }
 
 // ---------- arena ----------
 const roundTag = { Open: ["wait", "Open"], Settled: ["ok", "Settled"], Voided: ["bad", "Voided and refunded"] };
-function renderRounds(rounds) {
-  if (!rounds.length) return put("rounds", el("p", { class: "empty" }, "No rounds yet. Run scripts/e2e-arena.sh to play one."));
-  put("rounds", ...rounds.map((r) => {
-    const ev = r.evidence;
-    const demo = ev && (ev.model_id === "demo" || ev.attestation_hash === "demo");
+function renderRounds() {
+  if (!rounds.length) return put("rounds", el("p", { class: "empty" }, "No rounds yet. Run bash scripts/demo.sh to play one."));
+  put("rounds", ...rounds.slice().reverse().map((r) => {
+    const ev = r.evidence, k = roundKind(ev);
     const [kind, label] = roundTag[r.status] || ["idle", r.status];
     const evLine = ev
-      ? el("p", { class: "ev" }, demo ? el("span", { class: "tag demo" }, "Demo evidence") : el("span", { class: "tag ok" }, "Attested"),
-          el("span", {}, "Model " + ev.model_id), el("span", {}, "Signature " + ev.signature_kind),
-          el("span", {}, "Evidence ", el("span", { class: "hash" }, short(ev.attestation_hash))))
+      ? el("p", { class: "ev" }, evTag(k), el("span", {}, "Model " + ev.model_id), el("span", {}, "Signature " + ev.signature_kind), el("span", {}, "Evidence ", el("span", { class: "hash" }, short(ev.attestation_hash))))
       : el("p", { class: "ev" }, el("span", { class: "tag idle" }, "Sealed"), el("span", {}, "Real answer committed: ", el("span", { class: "hash" }, short(r.commit))));
     return el("div", { class: "round" },
-      el("div", {},
-        el("span", { class: "tag " + kind }, label), " ",
+      el("div", {}, el("span", { class: "tag " + kind }, label), " ",
         el("span", { class: "sub" }, "Round " + r.id + ", " + r.guesses.length + (r.guesses.length === 1 ? " guess" : " guesses") + ", stake " + credits(r.stake)),
         el("p", { class: "q" }, r.question), evLine),
       el("ul", { class: "answers" }, r.answers.map((a, i) => {
-        const real = r.real_index === i;
-        const picks = r.guesses.filter((g) => g.choice === i).length;
+        const real = r.real_index === i, picks = r.guesses.filter((g) => g.choice === i).length;
         return el("li", { class: real ? "real" : "" }, el("span", { class: "letter" }, String.fromCharCode(65 + i)), el("span", {}, a),
-          real ? el("span", { class: "tag ok" }, "Real") : "",
-          picks ? el("span", { class: "picks" }, picks + (picks === 1 ? " pick" : " picks")) : "");
+          real ? el("span", { class: "tag ok" }, "Real") : "", picks ? el("span", { class: "picks" }, picks + (picks === 1 ? " pick" : " picks")) : "");
       })));
   }));
 }
+
+function renderAll() { renderSlip(); renderRail(); renderHonest(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); }
 
 // ---------- refresh loop ----------
 const live = document.getElementById("live"), livetext = document.getElementById("livetext");
 async function refresh() {
   try {
-    const [jobs, rounds] = await Promise.all([listAll(CFG.escrow, "get_job", "job_id"), listAll(CFG.arena, "get_round", "round_id")]);
-    const sellers = [...new Set(jobs.map((j) => j.seller))];
-    const reps = await Promise.all(sellers.map(async (account) => ({ account, rep: await view(CFG.escrow, "get_reputation", { account_id: account }) })));
-    const bals = await Promise.all(Object.values(CFG.accounts).map(async (account) => ({ account, balance: await view(CFG.token, "ft_balance_of", { account_id: account }) })));
-    renderRail(jobs); renderJobs(jobs); renderRep(reps); renderBal(bals); renderRounds(rounds);
-    live.className = "live";
+    const [j, r] = await Promise.all([readList(CFG.escrow, "get_job", "job_id", finalJobs), readList(CFG.arena, "get_round", "round_id", finalRounds)]);
+    const sellers = [...new Set(j.map((x) => x.seller))];
+    const [rp, bl] = await Promise.all([
+      Promise.all(sellers.map(async (account) => ({ account, rep: await rpcView(CFG.escrow, "get_reputation", { account_id: account }) }))),
+      Promise.all(Object.values(CFG.accounts).map(async (account) => ({ account, balance: await rpcView(CFG.token, "ft_balance_of", { account_id: account }) }))),
+    ]);
+    jobs = j; rounds = r; reps = rp; bals = bl;
+    failures = 0; hasData = true;
+    renderAll();
+    live.className = "live fresh";
     livetext.textContent = "Live from NEAR testnet, updated " + new Date().toLocaleTimeString();
   } catch (e) {
-    live.className = "live down";
-    livetext.textContent = "Cannot read the chain (" + e.message + "). Retrying.";
+    failures++;
+    // One slow answer from the public node is normal. Keep the last data and only say so after repeated misses.
+    if (failures >= 3 || !hasData) {
+      live.className = "live down";
+      livetext.textContent = hasData ? "Reconnecting to NEAR testnet, showing the last data" : "Cannot reach NEAR testnet yet (" + e.message + "). Retrying";
+    }
   }
 }
-
-document.getElementById("foot").append(
-  link(CFG.escrow, "Escrow contract"), link(CFG.arena, "Arena contract"), link(CFG.token, "Test credits (NSC) token"));
+document.getElementById("foot").append(link(CFG.escrow, "Escrow contract"), link(CFG.arena, "Arena contract"), link(CFG.token, "Test credits (NSC) token"),
+  el("a", { href: "https://github.com/sirmos/nearsay", target: "_blank", rel: "noopener" }, "Source code"));
+renderAll();
 refresh();
 setInterval(refresh, CFG.refreshMs);
 </script>
