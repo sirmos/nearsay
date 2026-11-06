@@ -91,3 +91,9 @@ Also fits: Agent Economy (paid agents), Games With Real Economies (Arena), Priva
     scripts/     testnet setup and end-to-end runs
     web/         read-only dashboard
     fixtures/    one real attestation sample (no keys)
+
+## Real attestation
+
+The verifier already passes a real NEAR AI Cloud attestation (`fixtures/attestation-sample.json`; see step 2 above).
+The live path, where a seller's model call is signed, verified and then settles an escrow, is the next milestone.
+Until it is shown on-chain, settlements in this repo are labeled demo evidence.
