@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nearsay</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1b1d1f; --muted: #6a6f73; --line: #e3e1da;
+    --accent: #0b6e4f; --ok: #0b6e4f; --warn: #a15c00; --bad: #b3261e; --info: #2457a6;
+    --chip-ok: #dff3ea; --chip-warn: #fbecd2; --chip-bad: #f9dedc; --chip-info: #e0e9f8; --chip-idle: #ecebe6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121413; --card: #1b1e1c; --ink: #ecebe6; --muted: #9a9f9a; --line: #2c302d;
+      --accent: #5fd0a4; --ok: #5fd0a4; --warn: #f0b765; --bad: #f08f87; --info: #8db4f2;
+      --chip-ok: #173a2d; --chip-warn: #3d2f14; --chip-bad: #432220; --chip-info: #1c2c47; --chip-idle: #272a28;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 56px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 4px; }
+  h1 { font-size: 28px; margin: 0; letter-spacing: -0.02em; }
+  .tag { color: var(--muted); }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .note { background: var(--chip-warn); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 4px 8px 6px 0; }
+  td { padding: 8px 8px 8px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  .scroll { overflow-x: auto; }
+  .chip { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: var(--chip-idle); color: var(--muted); white-space: nowrap; }
+  .chip.ok { background: var(--chip-ok); color: var(--ok); }
+  .chip.warn { background: var(--chip-warn); color: var(--warn); }
+  .chip.bad { background: var(--chip-bad); color: var(--bad); }
+  .chip.info { background: var(--chip-info); color: var(--info); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .muted { color: var(--muted); }
+  .round { border-top: 1px solid var(--line); padding: 12px 0; }
+  .round:first-of-type { border-top: 0; padding-top: 0; }
+  .answers { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+  .answers li { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .answers li.real { border-color: var(--ok); background: var(--chip-ok); }
+  .empty { color: var(--muted); font-style: italic; }
+  .err { color: var(--bad); }
+  a { color: var(--info); }
+  footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Nearsay</h1>
+    <span class="tag">Agents get paid only for provable work.</span>
+  </header>
+  <p class="sub" id="status">Loading from NEAR testnet…</p>
+  <div class="note">
+    Testnet demo. Entries marked <b>demo evidence</b> were settled with hand-written evidence to test the contracts' money logic.
+    They are <b>not</b> attested results. Only entries that show a real model id and signature kind carry verifier evidence.
+  </div>
+
+  <div class="grid two">
+    <section>
+      <h2>Job Market</h2>
+      <p class="hint">Funds sit in escrow and release only on a verified result.</p>
+      <div class="scroll" id="jobs"></div>
+    </section>
+    <section>
+      <h2>Reputation</h2>
+      <p class="hint">Built only from settled escrows. Each buyer-seller pair counts up to a cap.</p>
+      <div class="scroll" id="rep"></div>
+      <h2 style="margin-top:18px">Credit balances</h2>
+      <div class="scroll" id="bal"></div>
+    </section>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <section>
+      <h2>Arena</h2>
+      <p class="hint">Which answer did the attested model really produce? Stake on it. The real answer is committed before anyone guesses.</p>
+      <div id="rounds"></div>
+    </section>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const CFG = {
+  rpc: "https://rpc.testnet.near.org",
+  escrow: "sirmos-ns-escrow.testnet",
+  arena: "sirmos-ns-arena.testnet",
+  token: "sirmos-ns-credits.testnet",
+  accounts: {
+    buyer: "sirmos-ns-buyer.testnet",
+    seller: "sirmos-ns-seller.testnet",
+    liar: "sirmos-ns-liar.testnet",
+    verifier: "sirmos-ns-verifier.testnet",
+  },
+  decimals: 6,
+  explorer: "https://explorer.testnet.near.org/accounts/",
+  refreshMs: 6000,
+};
+
+// ---------- chain access (read-only) ----------
+async function view(account, method, args = {}) {
+  const res = await fetch(CFG.rpc, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "query",
+      params: { request_type: "call_function", finality: "final", account_id: account,
+        method_name: method, args_base64: btoa(JSON.stringify(args)) },
+    }),
+  });
+  const j = await res.json();
+  if (j.error) throw new Error(j.error.message || "RPC error");
+  if (j.result && j.result.error) throw new Error(j.result.error);
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
+}
+
+async function listAll(account, method, idKey, max = 40) {
+  const out = [];
+  for (let i = 1; i <= max; i++) {
+    const item = await view(account, method, { [idKey]: i });
+    if (!item) break;
+    out.push(item);
+  }
+  return out;
+}
+
+// ---------- tiny DOM helpers (chain data is untrusted, so never use innerHTML) ----------
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") n.className = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) n.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  return n;
+}
+const chip = (text, kind) => el("span", { class: "chip " + (kind || "") }, text);
+const short = (s, n = 10) => (!s ? "–" : s.length > n * 2 + 1 ? s.slice(0, n) + "…" + s.slice(-4) : s);
+const acct = (a) => {
+  const label = Object.entries(CFG.accounts).find(([, v]) => v === a);
+  return el("a", { href: CFG.explorer + encodeURIComponent(a), target: "_blank", rel: "noopener" }, label ? label[0] : short(a, 14));
+};
+function credits(raw) {
+  const n = Number(BigInt(raw)) / 10 ** CFG.decimals;
+  return n.toLocaleString(undefined, { maximumFractionDigits: CFG.decimals }) + " NSC";
+}
+const jobKind = { Open: "idle", Funded: "info", Submitted: "warn", Settled: "ok", Refunded: "bad" };
+const roundKind = { Open: "info", Settled: "ok", Voided: "bad" };
+
+function table(head, rows, emptyText) {
+  if (!rows.length) return el("p", { class: "empty" }, emptyText);
+  return el("table", {}, el("thead", {}, el("tr", {}, head.map((h) => el("th", {}, h)))),
+    el("tbody", {}, rows.map((r) => el("tr", {}, r.map((c) => el("td", {}, c))))));
+}
+
+// ---------- renderers ----------
+function renderJobs(jobs) {
+  const rows = jobs.map((j) => [
+    "#" + j.id,
+    [acct(j.buyer), " → ", acct(j.seller)],
+    credits(j.amount),
+    chip(j.status, jobKind[j.status]),
+    j.evidence_ref === "demo"
+      ? chip("demo evidence", "warn")
+      : j.evidence_ref ? el("span", { class: "mono" }, short(j.evidence_ref, 12)) : "–",
+  ]);
+  return table(["Job", "Buyer → Seller", "Amount", "Status", "Evidence"], rows, "No jobs yet.");
+}
+
+function renderRep(reps) {
+  const rows = reps.filter((r) => r.rep.settled_jobs > 0)
+    .map((r) => [acct(r.account), String(r.rep.settled_jobs), credits(r.rep.score)]);
+  return table(["Account", "Settled jobs", "Score"], rows, "No settled jobs yet.");
+}
+
+function renderBal(bals) {
+  return table(["Account", "Balance"], bals.map((b) => [acct(b.account), credits(b.balance)]), "No balances.");
+}
+
+function renderRounds(rounds) {
+  if (!rounds.length) return el("p", { class: "empty" }, "No rounds yet.");
+  return el("div", {}, rounds.map((r) => {
+    const ev = r.evidence;
+    const demo = ev && (ev.model_id === "demo" || ev.attestation_hash === "demo");
+    const head = el("div", {}, el("b", {}, "Round #" + r.id + " "), chip(r.status, roundKind[r.status]), " ",
+      el("span", { class: "muted" }, r.guesses.length + (r.guesses.length === 1 ? " guess" : " guesses") + " · stake " + credits(r.stake)));
+    const answers = el("ul", { class: "answers" }, r.answers.map((a, i) => {
+      const real = r.real_index === i;
+      const picks = r.guesses.filter((g) => g.choice === i).length;
+      return el("li", { class: real ? "real" : "" }, el("span", { class: "mono" }, String.fromCharCode(65 + i)), a,
+        real ? chip("real", "ok") : "", picks ? el("span", { class: "muted" }, picks + " picked") : "");
+    }));
+    const evidence = ev
+      ? el("p", { class: "hint", style: "margin:8px 0 0" },
+          demo ? chip("demo evidence", "warn") : chip("attested", "ok"), " ",
+          "model ", el("span", { class: "mono" }, ev.model_id), " · signature ",
+          el("span", { class: "mono" }, ev.signature_kind), " · evidence hash ",
+          el("span", { class: "mono" }, short(ev.attestation_hash, 8)))
+      : el("p", { class: "hint", style: "margin:8px 0 0" }, "Real answer is committed, not yet revealed. Commit ",
+          el("span", { class: "mono" }, short(r.commit, 8)));
+    return el("div", { class: "round" }, head, el("div", { style: "margin-top:4px" }, r.question), answers, evidence);
+  }));
+}
+
+function put(id, node) { const t = document.getElementById(id); t.replaceChildren(node); }
+
+async function refresh() {
+  const status = document.getElementById("status");
+  try {
+    const [jobs, rounds] = await Promise.all([
+      listAll(CFG.escrow, "get_job", "job_id"),
+      listAll(CFG.arena, "get_round", "round_id"),
+    ]);
+    const sellers = [...new Set(jobs.map((j) => j.seller))];
+    const reps = await Promise.all(sellers.map(async (account) => ({ account, rep: await view(CFG.escrow, "get_reputation", { account_id: account }) })));
+    const bals = await Promise.all(Object.values(CFG.accounts).map(async (account) => ({
+      account, balance: await view(CFG.token, "ft_balance_of", { account_id: account }),
+    })));
+    put("jobs", renderJobs(jobs));
+    put("rep", renderRep(reps));
+    put("bal", renderBal(bals));
+    put("rounds", renderRounds(rounds));
+    status.textContent = "NEAR testnet · updated " + new Date().toLocaleTimeString();
+    status.className = "sub";
+  } catch (e) {
+    status.textContent = "Could not read the chain: " + e.message + ". Retrying…";
+    status.className = "sub err";
+  }
+}
+
+document.getElementById("foot").append(
+  "Contracts: ", el("a", { href: CFG.explorer + CFG.escrow, target: "_blank", rel: "noopener" }, "escrow"), " · ",
+  el("a", { href: CFG.explorer + CFG.arena, target: "_blank", rel: "noopener" }, "arena"), " · ",
+  el("a", { href: CFG.explorer + CFG.token, target: "_blank", rel: "noopener" }, "credits token"));
+refresh();
+setInterval(refresh, CFG.refreshMs);
+</script>
+</body>
+</html>
