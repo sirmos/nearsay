@@ -68,10 +68,24 @@ result hash. The verifier re-checks everything from that file and settles. The d
 Attested tag with a link to the evidence file, and anyone can re-run the verifier on it.
 Use `--dry` to see the verdict without settling.
 
-## Status of step 5
+## Result of step 5
 
-Written and syntax-checked. It runs as soon as a key with credits is available. Until a settlement on the
-dashboard carries the Attested tag, no result in this repo should be treated as hardware-attested.
+A real attested job has settled on testnet: **job 3** on `sirmos-ns2-escrow.testnet`. The seller called
+`z-ai/glm-5.3-flash` on NEAR AI Cloud, the verifier re-checked the evidence, and the escrow paid the seller.
+The signature kind is `provider_tee`, so the signature is tied to the attested model, not just the gateway.
+
+Evidence: `evidence/job-3.json` (exact request and response bytes, attestation reports, signature; no keys).
+
+**Re-verify it yourself, no key needed**
+
+    source scripts/testnet.env
+    cd verifier && npm install && cd ..
+    node services/verifier.mjs --job 3 --dry
+
+See `PASS` on every line (Intel-authenticated gateway and model reports, GPU evidence, signature, hashes) and
+`verdict ok=true, signature_kind=provider_tee`. `--dry` never settles anything.
+
+The Arena rounds and the `demo.sh` job still use test verdicts and are labeled that way on the dashboard.
 
 ## Contracts (testnet)
 
