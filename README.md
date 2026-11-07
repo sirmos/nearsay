@@ -75,9 +75,9 @@ dashboard carries the Attested tag, no result in this repo should be treated as 
 
 ## Contracts (testnet)
 
-- Escrow: `sirmos-ns-escrow.testnet`
-- Arena: `sirmos-ns-arena.testnet`
-- Test credits (NSC): `sirmos-ns-credits.testnet`
+- Escrow: `sirmos-ns2-escrow.testnet`
+- Arena: `sirmos-ns2-arena.testnet`
+- Test credits (NSC): `sirmos-ns2-credits.testnet`
 
 ## Tracks
 

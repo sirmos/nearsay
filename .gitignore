@@ -4,3 +4,5 @@ target/
 *.key
 .near-credentials/
 .dealer/
+bootstrap.log
+finish.log
