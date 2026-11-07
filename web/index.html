@@ -7,22 +7,22 @@
 <meta name="description" content="Agents get paid only for provable work. Escrow on NEAR releases only when a verifier accepts hardware-attested evidence.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --paper: #e9eff0; --sheet: #f9fbfb; --ink: #0f202a; --soft: #50626b; --rule: #c9d5d9;
     --deep: #0a2a33; --deep-2: #0f3641; --deep-ink: #e6f2f1; --deep-soft: #9db9bc; --deep-rule: #2c5560;
-    --proof: #0b7d56; --proof-bg: #d3eee2; --demo: #8a5006; --demo-bg: #f6e3c2;
+    --proof: #0b7d56; --proof-bg: #d3eee2; --warn: #8a5006; --warn-bg: #f6e3c2;
     --bad: #b2352b; --bad-bg: #f5d9d5; --wait: #2e5e8c; --wait-bg: #d9e6f3;
-    --on-deep-proof: #5fd9a6; --on-deep-demo: #f2b45a; --on-deep-bad: #f4948a;
+    --on-deep-proof: #5fd9a6; --on-deep-warn: #f2b45a; --on-deep-bad: #f4948a;
     --slip: #f3f6f5; --slip-ink: #12242d; --slip-soft: #5b6d75; --shadow: 0 1px 2px rgba(10,42,51,.08), 0 8px 24px rgba(10,42,51,.07);
-    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --paper: #0b1417; --sheet: #111c20; --ink: #e4eeee; --soft: #94a7ac; --rule: #243439;
       --deep: #061a20; --deep-2: #0a252d; --deep-rule: #1f434d;
-      --proof: #5fd9a6; --proof-bg: #11382b; --demo: #f2b45a; --demo-bg: #3a2a10;
+      --proof: #5fd9a6; --proof-bg: #11382b; --warn: #f2b45a; --warn-bg: #3a2a10;
       --bad: #f4948a; --bad-bg: #3e1f1c; --wait: #8db4f2; --wait-bg: #1b2b45;
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
     }
@@ -30,7 +30,7 @@
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--paper); color: var(--ink);
-    font: 16px/1.55 "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 16px/1.6 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-variant-numeric: tabular-nums; }
   .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
   a { color: inherit; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
@@ -45,23 +45,23 @@
       linear-gradient(180deg, var(--deep) 0%, var(--deep-2) 100%);
     color: var(--deep-ink); padding: 18px 0 52px; }
   .bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 46px; }
-  .brand { font-size: 21px; font-weight: 800; letter-spacing: -0.015em; display: inline-flex; align-items: center; gap: 9px; }
+  .brand { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 9px; }
   .brand svg { display: block; }
-  .nav { display: flex; align-items: center; gap: 18px; font-size: 14.5px; color: var(--deep-soft); }
+  .nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: 14.5px; color: var(--deep-soft); }
   .nav a { text-decoration: none; }
   .nav a:hover { color: var(--deep-ink); }
   .live { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--deep-soft); }
   .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--on-deep-proof); box-shadow: 0 0 0 0 rgba(95,217,166,.5); }
-  .live.down i { background: var(--on-deep-demo); box-shadow: none; }
+  .live.down i { background: var(--on-deep-warn); box-shadow: none; }
   .live.fresh i { animation: pulse 1.6s ease-out 1; }
   @keyframes pulse { to { box-shadow: 0 0 0 9px rgba(95,217,166,0); } }
 
   .heroGrid { display: grid; gap: 36px 56px; grid-template-columns: 1fr; align-items: center; }
   @media (min-width: 900px) { .heroGrid { grid-template-columns: 1.15fr .85fr; } }
-  h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.03; letter-spacing: -0.03em; font-weight: 760; margin: 0 0 18px; max-width: 14ch; }
+  h1 { font-size: clamp(34px, 5.4vw, 52px); line-height: 1.1; letter-spacing: -0.022em; font-weight: 600; margin: 0 0 18px; max-width: 17ch; }
   .lede { font-size: 18.5px; color: var(--deep-soft); max-width: 50ch; margin: 0 0 24px; }
   .cta { display: flex; flex-wrap: wrap; gap: 10px; }
-  .btn { display: inline-block; padding: 11px 18px; border-radius: 8px; font-weight: 650; font-size: 15px; text-decoration: none; border: 1px solid var(--deep-rule); color: var(--deep-ink); }
+  .btn { display: inline-block; padding: 11px 18px; border-radius: 8px; font-weight: 500; font-size: 15px; text-decoration: none; border: 1px solid var(--deep-rule); color: var(--deep-ink); }
   .btn.primary { background: var(--on-deep-proof); border-color: var(--on-deep-proof); color: #05231a; }
   .btn:hover { filter: brightness(1.08); }
 
@@ -72,14 +72,14 @@
     background: linear-gradient(-45deg, transparent 7px, var(--slip) 0) 0 0 / 14px 10px,
                 linear-gradient(45deg, transparent 7px, var(--slip) 0) 0 0 / 14px 10px;
     background-repeat: repeat-x; }
-  .slip h2 { font-size: 15px; font-weight: 700; margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; letter-spacing: 0; }
+  .slip h2 { font-size: 15px; font-weight: 600; margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; letter-spacing: 0; }
   .slip .meta { color: var(--slip-soft); font-size: 13.5px; margin: 2px 0 12px; }
   .slip dl { margin: 0; border-top: 1.5px dashed #b7c4c8; }
   .slip .line { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 9px 0; border-bottom: 1.5px dashed #b7c4c8; font-size: 15px; }
   .slip dt { color: var(--slip-soft); }
   .slip dd { margin: 0; text-align: right; font-weight: 600; overflow-wrap: anywhere; }
   .slip .total { font-size: 19px; padding: 12px 0; border-bottom: 0; }
-  .slip .total dd { font-size: 22px; font-weight: 750; }
+  .slip .total dd { font-size: 22px; font-weight: 600; }
   .slip .foot { font-size: 12.5px; color: var(--slip-soft); margin: 6px 0 0; overflow-wrap: anywhere; }
   .slip .empty { margin: 14px 0 6px; color: var(--slip-soft); }
   .slip .tag { font-size: 12.5px; }
@@ -94,44 +94,39 @@
   .station::after { content: ""; position: absolute; top: 7px; left: 20px; right: 4px; height: 2px; background: var(--deep-rule); transform-origin: left; }
   .station:last-child::after { display: none; }
   .station.done .dot { background: var(--on-deep-proof); border-color: var(--on-deep-proof); }
-  .station.demo .dot { background: var(--on-deep-demo); border-color: var(--on-deep-demo); }
+  .station.warn .dot { background: var(--on-deep-warn); border-color: var(--on-deep-warn); }
   .station.bad .dot { background: var(--on-deep-bad); border-color: var(--on-deep-bad); }
   .station.done::after { background: var(--on-deep-proof); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
-  .station.demo::after { background: var(--on-deep-demo); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
+  .station.warn::after { background: var(--on-deep-warn); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
   .station.bad::after { background: var(--on-deep-bad); animation: draw .7s ease-out both; animation-delay: calc(var(--i) * .22s); }
   @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  .st-title { font-weight: 650; font-size: 17px; line-height: 1.25; }
-  .station.demo .st-title { color: var(--on-deep-demo); }
+  .st-title { font-weight: 500; font-size: 17px; line-height: 1.25; }
+  .station.warn .st-title { color: var(--on-deep-warn); }
   .station.bad .st-title { color: var(--on-deep-bad); }
   .st-detail { color: var(--deep-soft); font-size: 14px; margin-top: 4px; overflow-wrap: anywhere; }
   @media (max-width: 720px) {
     .rail { grid-template-columns: 1fr; }
     .station { padding: 0 0 26px 34px; }
     .station::after { top: 20px; bottom: 2px; left: 7px; right: auto; width: 2px; height: auto; transform-origin: top; }
-    .station.done::after, .station.demo::after, .station.bad::after { animation-name: drawv; }
+    .station.done::after, .station.warn::after, .station.bad::after { animation-name: drawv; }
     .station:last-child { padding-bottom: 0; }
   }
   @keyframes drawv { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   @media (prefers-reduced-motion: reduce) { .station::after, .live i { animation: none !important; } }
   .rail.static .station::after { animation: none !important; }
 
-  /* ---------- honesty strip ---------- */
-  .honest { background: var(--demo-bg); border-bottom: 1px solid var(--rule); }
-  .honest p { margin: 0; padding: 12px 0; font-size: 14.5px; max-width: 100ch; }
-  .honest b { color: var(--demo); }
-  .honest[hidden] { display: none; }
 
   /* ---------- stats ---------- */
   .stats { display: grid; grid-template-columns: repeat(2, 1fr); background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); margin-top: -28px; position: relative; overflow: hidden; }
   @media (min-width: 760px) { .stats { grid-template-columns: repeat(4, 1fr); } }
   .stat { padding: 18px 20px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-  .stat b { display: block; font-size: 28px; font-weight: 720; letter-spacing: -0.02em; line-height: 1.1; }
+  .stat b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.1; }
   .stat span { color: var(--soft); font-size: 14px; }
   .stat.good b { color: var(--proof); }
 
   /* ---------- sections and cards ---------- */
   main section.wrap { padding: 44px 20px 8px; }
-  h2.sec { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; font-weight: 720; }
+  h2.sec { font-size: 24px; letter-spacing: -0.012em; margin: 0 0 6px; font-weight: 600; }
   .intro { color: var(--soft); margin: 0 0 20px; max-width: 64ch; }
   .card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); padding: 6px 20px 14px; }
   .scroll { overflow-x: auto; }
@@ -140,10 +135,10 @@
   td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
   tbody tr:last-child td { border-bottom: 0; }
   tr.sel td { background: color-mix(in srgb, var(--proof) 7%, transparent); }
-  td.jobno button { background: none; border: 0; padding: 2px 6px; margin-left: -6px; font-weight: 700; cursor: pointer; border-radius: 4px; text-decoration: underline; text-underline-offset: 3px; }
-  .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; font-weight: 650; font-size: 13px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+  td.jobno button { background: none; border: 0; padding: 2px 6px; margin-left: -6px; font-weight: 600; cursor: pointer; border-radius: 4px; text-decoration: underline; text-underline-offset: 3px; }
+  .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; font-weight: 500; font-size: 13px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
   .tag.ok { color: var(--proof); background: var(--proof-bg); }
-  .tag.demo { color: var(--demo); background: var(--demo-bg); }
+  .tag.warn { color: var(--warn); background: var(--warn-bg); }
   .tag.bad { color: var(--bad); background: var(--bad-bg); }
   .tag.wait { color: var(--wait); background: var(--wait-bg); }
   .tag.idle { color: var(--soft); }
@@ -163,24 +158,24 @@
   .round { display: grid; gap: 16px 32px; grid-template-columns: 1fr; padding: 24px 0; border-bottom: 1px solid var(--deep-rule); }
   .round:last-child { border-bottom: 0; }
   @media (min-width: 860px) { .round { grid-template-columns: 1fr 1.25fr; } }
-  .q { font-size: 20px; font-weight: 620; line-height: 1.3; margin: 8px 0; overflow-wrap: anywhere; }
+  .q { font-size: 19px; font-weight: 500; line-height: 1.3; margin: 8px 0; overflow-wrap: anywhere; }
   .answers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; }
   .answers li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 11px 14px; border: 1px solid var(--deep-rule); border-radius: 8px; background: var(--deep-2); overflow-wrap: anywhere; }
   .answers li.real { border-color: var(--on-deep-proof); background: color-mix(in srgb, var(--on-deep-proof) 14%, var(--deep-2)); }
-  .answers .letter { font-weight: 800; color: var(--deep-soft); width: 1.1em; }
+  .answers .letter { font-weight: 600; color: var(--deep-soft); width: 1.1em; }
   .answers .picks { color: var(--deep-soft); font-size: 14px; margin-left: auto; }
   .ev { margin: 10px 0 0; font-size: 14px; color: var(--deep-soft); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
   .arenaBand .sub { color: var(--deep-soft); }
   .arenaBand .empty { color: var(--deep-soft); }
   .arenaBand .tag.ok { color: var(--on-deep-proof); background: rgba(95,217,166,.12); }
-  .arenaBand .tag.demo { color: var(--on-deep-demo); background: rgba(242,180,90,.12); }
+  .arenaBand .tag.warn { color: var(--on-deep-warn); background: rgba(242,180,90,.12); }
   .arenaBand .tag.wait { color: #9fc3f2; background: rgba(141,180,242,.12); }
   .arenaBand .tag.bad { color: var(--on-deep-bad); background: rgba(244,148,138,.12); }
   .arenaBand .tag.idle { color: var(--deep-soft); }
   /* ---------- play ---------- */
   .walletbar { margin: 0 0 8px; padding: 14px 16px; border: 1px solid var(--deep-rule); border-radius: 10px; background: var(--deep-2); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
   .walletbar .who { font-size: 15px; }
-  .walletbar .who b { font-weight: 700; }
+  .walletbar .who b { font-weight: 600; }
   .walletbar .grow { flex: 1 1 220px; color: var(--deep-soft); font-size: 14.5px; }
   .walletbar details { flex-basis: 100%; color: var(--deep-soft); font-size: 14px; }
   .walletbar summary { cursor: pointer; }
@@ -188,15 +183,30 @@
   .flash { flex-basis: 100%; font-size: 14.5px; }
   .flash.err { color: var(--on-deep-bad); }
   .flash.ok { color: var(--on-deep-proof); }
-  .pbtn { font: inherit; font-weight: 650; font-size: 14px; padding: 6px 12px; border-radius: 7px; cursor: pointer; border: 1px solid var(--deep-rule); background: transparent; color: var(--deep-ink); }
+  .pbtn { font: inherit; font-weight: 500; font-size: 14px; padding: 6px 12px; border-radius: 7px; cursor: pointer; border: 1px solid var(--deep-rule); background: transparent; color: var(--deep-ink); }
   .pbtn.go { background: var(--on-deep-proof); border-color: var(--on-deep-proof); color: #05231a; }
   .pbtn:hover:not(:disabled) { filter: brightness(1.1); }
   .pbtn:disabled { opacity: .55; cursor: default; }
   .answers .pbtn { margin-left: 8px; }
   .playnote { margin: 8px 0 0; font-size: 14.5px; color: var(--deep-soft); display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  /* ---------- how to play and leaderboard ---------- */
+  .howto { display: grid; gap: 12px; grid-template-columns: 1fr; margin: 0 0 14px; }
+  @media (min-width: 860px) { .howto { grid-template-columns: repeat(3, 1fr); } }
+  .hcard { border: 1px solid var(--deep-rule); border-radius: 10px; background: var(--deep-2); padding: 16px 18px; }
+  .hcard h3 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+  .hcard p, .hcard li { margin: 0 0 6px; font-size: 14.5px; color: var(--deep-soft); }
+  .hcard ol, .hcard ul { margin: 0; padding-left: 20px; }
+  .hcard code { font: 12.5px var(--mono); color: var(--deep-ink); overflow-wrap: anywhere; }
+  .hcard pre { margin: 8px 0 0; padding: 10px 12px; background: var(--deep); border: 1px solid var(--deep-rule); border-radius: 8px; overflow-x: auto; font: 12.5px/1.5 var(--mono); color: var(--deep-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .hcard a { color: var(--deep-ink); }
+  .help { margin: 0 0 14px; border: 1px solid var(--deep-rule); border-radius: 10px; background: var(--deep-2); padding: 12px 18px; color: var(--deep-soft); font-size: 14.5px; }
+  .help summary { cursor: pointer; color: var(--deep-ink); font-weight: 500; }
+  .help p { margin: 8px 0 0; }
+  th.n, td.n { text-align: right; padding-right: 16px; }
+  tr.me td { background: color-mix(in srgb, var(--proof) 9%, transparent); font-weight: 500; }
+  .rule-note { margin: 10px 2px 0; }
   footer { padding: 32px 0 60px; color: var(--soft); font-size: 14.5px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
-  .honest:not([hidden]) ~ main .stats { margin-top: 24px; }
 </style>
 </head>
 <body>
@@ -208,7 +218,7 @@
         Nearsay
       </span>
       <span class="nav">
-        <a href="#jobs">Jobs</a><a href="#reputation">Reputation</a><a href="#arena">Arena</a>
+        <a href="#jobs">Jobs</a><a href="#reputation">Reputation</a><a href="#arena">Arena</a><a href="#board">Leaderboard</a>
         <span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
       </span>
     </div>
@@ -230,9 +240,6 @@
   </div>
 </header>
 
-<div class="honest" id="honest" hidden><div class="wrap">
-  <p id="honesttext"></p>
-</div></div>
 
 <main>
   <div class="wrap">
@@ -264,10 +271,18 @@
     <section class="wrap">
       <h2 class="sec">Arena: spot the real answer</h2>
       <p class="intro">One answer was really produced by the model. The others are decoys written by liar agents. Players stake credits on the one they think is real. The real position is sealed before anyone guesses.</p>
+      <div id="howto"></div>
       <div class="walletbar" id="walletbar"></div>
       <div id="rounds"></div>
     </section>
   </div>
+
+  <section class="wrap" id="board">
+    <h2 class="sec">Leaderboard</h2>
+    <p class="intro">Ranked from settled Arena rounds on testnet. Anyone can recompute it from the chain. Accounts run by the project are not ranked.</p>
+    <div class="card scroll" id="boardtable"></div>
+    <p class="sub rule-note" id="boardnote"></p>
+  </section>
 </main>
 
 <footer><div class="wrap" id="foot"></div></footer>
@@ -361,11 +376,12 @@ const nameOf = (a) => { const e = Object.entries(CFG.accounts).find(([, v]) => v
 const link = (a, text) => el("a", { href: CFG.explorer + encodeURIComponent(a), target: "_blank", rel: "noopener" }, text || nameOf(a));
 const fmt = (raw) => (Number(BigInt(raw)) / 10 ** CFG.decimals).toLocaleString(undefined, { maximumFractionDigits: CFG.decimals });
 const credits = (raw) => fmt(raw) + " NSC";
-// Evidence kinds. "demo" = a hand-written verdict. "attested" = a verified evidence bundle (sha256:<hash>).
-const evKind = (ref) => (!ref ? "none" : ref === "demo" ? "demo" : ref.startsWith("sha256:") ? "attested" : "other");
-const roundKind = (ev) => (!ev ? "none" : ev.model_id === "demo" || ev.attestation_hash === "demo" ? "demo" : "attested");
-const evTag = (kind) => kind === "demo" ? el("span", { class: "tag demo" }, "Test verdict")
-  : kind === "attested" ? el("span", { class: "tag ok" }, "Attested") : el("span", { class: "tag idle" }, "No evidence");
+// Evidence kinds. "attested" = a verified evidence bundle (sha256:<hash> for jobs, a 64-hex attestation hash for rounds).
+const HEX64 = /^[0-9a-f]{64}$/;
+const evKind = (ref) => (!ref ? "none" : /^sha256:[0-9a-f]{64}$/.test(ref) ? "attested" : "unverified");
+const roundKind = (ev) => (!ev ? "none" : ev.ok !== false && HEX64.test(String(ev.attestation_hash || "")) && ev.model_id ? "attested" : "unverified");
+const evTag = (kind) => kind === "attested" ? el("span", { class: "tag ok" }, "Attested")
+  : kind === "unverified" ? el("span", { class: "tag warn" }, "Unverified") : el("span", { class: "tag idle" }, "No evidence");
 const evLink = (j) => el("a", { href: CFG.evidenceBase + "job-" + j.id + ".json", target: "_blank", rel: "noopener" }, "evidence file");
 
 // ---------- hero: receipt and rail ----------
@@ -398,11 +414,11 @@ function railStations(j) {
   const st = [];
   st.push({ state: funded ? "done" : "", title: funded ? "Escrow funded" : "Waiting for funds", detail: funded ? credits(j.amount) + " held for " + nameOf(j.seller) : "Buyer has not funded this job" });
   st.push({ state: submitted ? "done" : "", title: submitted ? "Result submitted" : "No result yet", detail: submitted ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash))] : "Seller has not submitted" });
-  if (s === "Settled") st.push(k === "demo" ? { state: "demo", title: "Test verdict", detail: "Hand-written verdict, not hardware-attested." } : { state: "done", title: "Evidence verified", detail: ["Bundle ", el("span", { class: "hash" }, short(j.evidence_ref.replace("sha256:", ""), 8))] });
+  if (s === "Settled") st.push(k === "attested" ? { state: "done", title: "Hardware proof verified", detail: ["Bundle ", el("span", { class: "hash" }, short(j.evidence_ref.replace("sha256:", ""), 8))] } : { state: "warn", title: "Settled without a checkable bundle", detail: "The evidence reference is not a bundle hash." });
   else if (s === "Refunded" && submitted) st.push({ state: "bad", title: "Not accepted", detail: "Verifier did not approve the result" });
   else if (s === "Submitted") st.push({ state: "", title: "Waiting for the verifier", detail: "Result is submitted and unchecked" });
   else st.push({ state: "", title: "Evidence not checked", detail: "Comes after a result is submitted" });
-  if (s === "Settled") st.push({ state: k === "demo" ? "demo" : "done", title: "Seller paid", detail: credits(String(payout)) + " after the 1% fee" });
+  if (s === "Settled") st.push({ state: k === "attested" ? "done" : "warn", title: "Seller paid", detail: credits(String(payout)) + " after the 1% fee" });
   else if (s === "Refunded") st.push({ state: "bad", title: "Buyer refunded", detail: credits(j.amount) + " returned" });
   else st.push({ state: "", title: "Not paid yet", detail: "Pays only after the evidence is accepted" });
   return st;
@@ -418,18 +434,6 @@ function renderRail() {
 }
 
 // ---------- honesty strip and stats ----------
-function renderHonest() {
-  const settled = jobs.filter((j) => j.status === "Settled");
-  const att = settled.filter((j) => evKind(j.evidence_ref) === "attested").length;
-  const attRounds = rounds.filter((r) => roundKind(r.evidence) === "attested").length;
-  const box = document.getElementById("honest");
-  if (att + attRounds > 0) { box.hidden = true; return; }
-  box.hidden = false;
-  document.getElementById("honesttext").replaceChildren(
-    el("b", {}, "Where this stands. "),
-    "The settlements below were run with test verdicts, so the money logic is proven but no result here is hardware-attested yet. ",
-    "The verifier already passes real NEAR AI Cloud hardware evidence (see the README). An attested settlement will show a green Attested tag with its evidence file.");
-}
 function renderStats() {
   const settled = jobs.filter((j) => j.status === "Settled");
   const paid = settled.reduce((s, j) => s + payoutOf(j).payout, 0n);
@@ -445,7 +449,7 @@ function renderStats() {
 
 // ---------- ledger, reputation, balances ----------
 function renderJobs() {
-  if (!jobs.length) return put("jobtable", el("p", { class: "empty" }, "No jobs yet. Run bash scripts/demo.sh to create the first one."));
+  if (!jobs.length) return put("jobtable", el("p", { class: "empty" }, "No jobs yet. A buyer funds the first escrow with node services/buyer.mjs, and it appears here within seconds."));
   const rows = jobs.slice().reverse().map((j) => {
     const [kind, label] = jobTag[j.status] || ["idle", j.status];
     return el("tr", { class: j.id === currentJob().id ? "sel" : "" },
@@ -471,15 +475,76 @@ function renderBal() {
   put("bal", el("ul", { class: "rows" }, bals.map((b) => el("li", {}, link(b.account), el("b", {}, credits(b.balance))))));
 }
 
+// ---------- arena: how to play, rules, leaderboard ----------
+function renderHowto() {
+  put("howto",
+    el("div", { class: "howto" },
+      el("div", { class: "hcard" }, el("h3", {}, "How a round works"),
+        el("ol", {},
+          el("li", {}, "The dealer asks a question. One answer was really written by an attested model on NEAR AI Cloud. The others are decoys from liar agents."),
+          el("li", {}, "The dealer seals the real position with a hash before anyone guesses, so it cannot be changed later."),
+          el("li", {}, "You stake test credits on the answer you think is real."),
+          el("li", {}, "After the deadline the dealer reveals the position and the hardware proof for the real answer. The contract checks both before paying anyone."))),
+      el("div", { class: "hcard" }, el("h3", {}, "What you can win"),
+        el("ul", {},
+          el("li", {}, "Right guess: you get your stake back plus a share of the stakes from wrong guesses, after a 1% fee and the liar agents' share."),
+          el("li", {}, "Wrong guess: you lose that round's stake."),
+          el("li", {}, "Dealer never reveals or proof fails: the round is voided and every stake is refundable."),
+          el("li", {}, "Every settled round also earns leaderboard points (see the rules under the table)."),
+          el("li", {}, "Test credits (NSC) have no cash value. This is a game on testnet."))),
+      el("div", { class: "hcard" }, el("h3", {}, "Get a testnet account"),
+        el("ol", {},
+          el("li", {}, "Open ", el("a", { href: "https://testnet.mynearwallet.com", target: "_blank", rel: "noopener" }, "testnet.mynearwallet.com"), " and create an account. Pick a name ending in .testnet."),
+          el("li", {}, "Come back here, press Connect wallet, and choose that wallet."),
+          el("li", {}, "Press Get test credits for free NSC, then stake on an answer.")),
+        el("p", {}, "Prefer a terminal?"),
+        el("pre", {}, "near account create-account sponsor-by-faucet-service YOURNAME.testnet autogenerate-new-keypair save-to-legacy-keychain network-config testnet create"))),
+    el("details", { class: "help" }, el("summary", {}, "Why does my wallet ask for about 0.25 NEAR?"),
+      el("p", {}, "When you connect, wallets usually ask you to approve a limited access key for the Arena contract with a fee allowance of around 0.25 NEAR. It is a spending cap for contract calls, not a payment, and on testnet it is test NEAR with no value. Staking itself costs only test credits (NSC)."),
+      el("p", {}, "If your testnet account has no NEAR at all, the wallet cannot sign. Create the account with the steps above, which funds it, then try again.")));
+}
+const POINTS = { played: 1, correct: 10, streakStep: 2, streakCap: 10 };
+const playerOf = (g) => { for (const v of Object.values(g)) if (typeof v === "string" && /\.(testnet|near)$/.test(v)) return v; return null; };
+function buildBoard() {
+  const ours = new Set(Object.values(CFG.accounts).concat([CFG.escrow, CFG.arena, CFG.token]));
+  const by = new Map();
+  for (const r of rounds.filter((x) => x.status === "Settled").sort((a, b) => a.id - b.id)) {
+    for (const g of r.guesses) {
+      const p = playerOf(g);
+      if (!p || ours.has(p)) continue;
+      const e = by.get(p) || { player: p, played: 0, correct: 0, streak: 0, best: 0, points: 0 };
+      e.played++; e.points += POINTS.played;
+      if (g.choice === r.real_index) {
+        e.correct++; e.streak++; e.best = Math.max(e.best, e.streak);
+        e.points += POINTS.correct + Math.min((e.streak - 1) * POINTS.streakStep, POINTS.streakCap);
+      } else e.streak = 0;
+      by.set(p, e);
+    }
+  }
+  return [...by.values()].sort((a, b) => b.points - a.points || b.correct / b.played - a.correct / a.played || a.player.localeCompare(b.player));
+}
+function renderBoard() {
+  const rows = buildBoard();
+  document.getElementById("boardnote").textContent = "Points: " + POINTS.played + " for playing a settled round, " + POINTS.correct + " for a correct guess, and +" + POINTS.streakStep + " for each extra correct guess in a row (up to +" + POINTS.streakCap + ").";
+  if (!rows.length) return put("boardtable", el("p", { class: "empty" }, "No settled rounds with players yet. Play a round and your name goes here."));
+  put("boardtable", el("table", {},
+    el("thead", {}, el("tr", {}, [["#", "n"], ["Player", ""], ["Rounds", "n"], ["Correct", "n"], ["Accuracy", "n"], ["Streak", "n"], ["Points", "n"]].map(([h, c]) => el("th", { class: c }, h)))),
+    el("tbody", {}, rows.map((e, i) => el("tr", { class: e.player === me ? "me" : "" },
+      el("td", { class: "n" }, String(i + 1)), el("td", {}, link(e.player, e.player), e.player === me ? " (you)" : ""),
+      el("td", { class: "n" }, String(e.played)), el("td", { class: "n" }, String(e.correct)),
+      el("td", { class: "n" }, Math.round((e.correct / e.played) * 100) + "%"), el("td", { class: "n" }, String(e.streak)),
+      el("td", { class: "n" }, String(e.points)))))));
+}
+
 // ---------- arena ----------
 const roundTag = { Open: ["wait", "Open"], Settled: ["ok", "Settled"], Voided: ["bad", "Voided and refunded"] };
 function renderRounds() {
-  if (!rounds.length) return put("rounds", el("p", { class: "empty" }, "No rounds yet. Run bash scripts/demo.sh to play one."));
+  if (!rounds.length) return put("rounds", el("p", { class: "empty" }, "No rounds open right now. The dealer opens the next one with node services/dealer.mjs open-live."));
   put("rounds", ...rounds.slice().reverse().map((r) => {
     const ev = r.evidence, k = roundKind(ev);
     const [kind, label] = roundTag[r.status] || ["idle", r.status];
     const evLine = ev
-      ? el("p", { class: "ev" }, evTag(k), el("span", {}, "Model " + ev.model_id), el("span", {}, "Signature " + ev.signature_kind), el("span", {}, "Evidence ", el("span", { class: "hash" }, short(ev.attestation_hash))))
+      ? el("p", { class: "ev" }, evTag(k), el("span", {}, "Model " + ev.model_id), el("span", {}, "Signature " + ev.signature_kind), el("span", {}, "Evidence ", k === "attested" ? el("a", { href: CFG.evidenceBase + "round-" + r.id + ".json", target: "_blank", rel: "noopener" }, short(ev.attestation_hash)) : el("span", { class: "hash" }, short(ev.attestation_hash))))
       : el("p", { class: "ev" }, el("span", { class: "tag idle" }, "Sealed"), el("span", {}, "Real answer committed: ", el("span", { class: "hash" }, short(r.commit))));
     return el("div", { class: "round" },
       el("div", {}, el("span", { class: "tag " + kind }, label), " ",
@@ -493,7 +558,7 @@ function renderRounds() {
   }));
 }
 
-function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderHonest(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); }
+function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); }
 
 // ---------- play: connect a wallet, stake on an answer, claim ----------
 const WALLET_VERSIONS = ["8.10.2", "8.9.15", "8.9.13", "8.9.5"];
@@ -570,7 +635,7 @@ function renderWallet() {
     kids.push(el("button", { class: "pbtn", type: "button", onclick: signOut }, "Sign out"));
   } else {
     kids.push(el("button", { class: "pbtn go", type: "button", onclick: connect }, "Connect wallet to play"));
-    kids.push(el("span", { class: "grow" }, "Use any NEAR testnet account. Test credits are free and have no value."));
+    kids.push(el("span", { class: "grow" }, "Any NEAR testnet account works. Test credits are free and have no cash value."));
   }
   if (walletState === "unavailable") kids.push(el("span", { class: "flash err" }, "The wallet library could not load in this browser. You can still play from a terminal, see below."));
   if (flashMsg) kids.push(el("span", { class: "flash " + flashMsg.kind, role: "status" }, flashMsg.text));
@@ -645,6 +710,7 @@ async function refresh() {
 }
 document.getElementById("foot").append(link(CFG.escrow, "Escrow contract"), link(CFG.arena, "Arena contract"), link(CFG.token, "Test credits (NSC) token"),
   el("a", { href: "https://github.com/sirmos/nearsay", target: "_blank", rel: "noopener" }, "Source code"));
+renderHowto();
 renderAll();
 refresh();
 setInterval(refresh, CFG.refreshMs);
