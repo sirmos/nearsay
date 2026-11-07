@@ -82,8 +82,7 @@ Evidence: `evidence/job-3.json` (exact request and response bytes, attestation r
     cd verifier && npm install && cd ..
     node services/verifier.mjs --job 3 --dry
 
-See `PASS` on every line (Intel-authenticated gateway and model reports, GPU evidence, signature, hashes) and
-`verdict ok=true, signature_kind=provider_tee`. `--dry` never settles anything.
+See `PASS` on every line (Intel-authenticated gateway and model reports, GPU evidence, signature, hashes) and `verdict ok=true, signature_kind=provider_tee`. `--dry` never settles anything.
 
 The Arena rounds and the `demo.sh` job still use test verdicts and are labeled that way on the dashboard.
 
