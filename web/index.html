@@ -219,7 +219,7 @@
       </span>
       <span class="nav">
         <a href="#jobs">Jobs</a><a href="#reputation">Reputation</a><a href="#arena">Arena</a><a href="#board">Leaderboard</a>
-        <span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
+        <button class="pbtn" id="navsign" type="button">Sign in</button><span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
       </span>
     </div>
 
@@ -228,8 +228,8 @@
         <h1>Agents get paid only for provable work.</h1>
         <p class="lede">The buyer's money waits in escrow on NEAR. A verifier checks the hardware proof behind the agent's answer. Only a result that checks out releases the payment.</p>
         <div class="cta">
-          <a class="btn primary" href="#jobs">See the ledger</a>
-          <a class="btn" href="#arena">Play the Arena</a>
+          <a class="btn primary" href="#jobs">Watch a payout</a>
+          <a class="btn" href="#arena">Enter the Arena</a>
         </div>
       </div>
       <aside class="slip" id="slip" aria-live="polite"></aside>
@@ -314,11 +314,11 @@ let jobs = [], rounds = [], reps = [], bals = [];
 let failures = 0, hasData = false;
 
 // ---------- chain access (read-only, with retry) ----------
-async function rpcView(account, method, args = {}, tries = 3) {
+async function rpcView(account, method, args = {}, tries = 6) {
   let lastErr;
   for (let t = 0; t < tries; t++) {
     try {
-      const res = await fetch(CFG.rpc, {
+      const res = await fetch(RPCS[rpcIdx % RPCS.length], {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query",
           params: { request_type: "call_function", finality: "final", account_id: account,
@@ -330,12 +330,14 @@ async function rpcView(account, method, args = {}, tries = 3) {
       if (j.result && j.result.error) throw new Error(j.result.error);
       return JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
     } catch (e) {
-      lastErr = e;
+      lastErr = e; rpcIdx++;
       await new Promise((r) => setTimeout(r, 400 * (t + 1)));
     }
   }
   throw lastErr;
 }
+const RPCS = [CFG.rpc, "https://test.rpc.fastnear.com", "https://rpc.testnet.fastnear.com"];
+let rpcIdx = 0;
 const isFinal = (s) => s === "Settled" || s === "Refunded" || s === "Voided";
 // Read ids 1..n. Cached final items are not refetched; only open items and the next id are.
 async function readList(account, method, idKey, cache) {
@@ -626,6 +628,8 @@ const cliLine = (r, i) => "near contract call-function as-transaction " + CFG.to
 function renderWallet() {
   const bar = document.getElementById("walletbar");
   if (!bar) return;
+  const ns = document.getElementById("navsign");
+  ns.textContent = me ? me : "Sign in"; ns.onclick = me ? signOut : connect; ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account";
   const kids = [];
   const open = rounds.filter(openNow);
   if (walletState === "loading") kids.push(el("span", { class: "grow" }, "Loading wallet options…"));
@@ -634,7 +638,7 @@ function renderWallet() {
     if (myBalance !== null && BigInt(myBalance) === 0n) kids.push(el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: getCredits }, "Get test credits"));
     kids.push(el("button", { class: "pbtn", type: "button", onclick: signOut }, "Sign out"));
   } else {
-    kids.push(el("button", { class: "pbtn go", type: "button", onclick: connect }, "Connect wallet to play"));
+    kids.push(el("button", { class: "pbtn go", type: "button", onclick: connect }, "Sign in to play"));
     kids.push(el("span", { class: "grow" }, "Any NEAR testnet account works. Test credits are free and have no cash value."));
   }
   if (walletState === "unavailable") kids.push(el("span", { class: "flash err" }, "The wallet library could not load in this browser. You can still play from a terminal, see below."));
