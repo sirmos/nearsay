@@ -1,8 +1,8 @@
 use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
 use near_sdk::{
-    env, ext_contract, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise,
-    PromiseOrValue,
+    env, ext_contract, is_promise_success, near, require, AccountId, Gas, NearToken,
+    PanicOnDefault, Promise, PromiseOrValue,
 };
 
 #[ext_contract(ext_ft)]
@@ -75,6 +75,8 @@ pub struct Escrow {
     reputation: LookupMap<AccountId, Reputation>,
     pair_totals: LookupMap<String, u128>,
     fees: LookupMap<AccountId, u128>,
+    /// Money owed to an account because a token transfer failed. Pulled with `withdraw`.
+    withdrawable: LookupMap<String, u128>,
 }
 
 #[near]
@@ -99,6 +101,7 @@ impl Escrow {
             reputation: LookupMap::new(b"r".to_vec()),
             pair_totals: LookupMap::new(b"p".to_vec()),
             fees: LookupMap::new(b"f".to_vec()),
+            withdrawable: LookupMap::new(b"w".to_vec()),
         }
     }
 
@@ -191,12 +194,12 @@ impl Escrow {
             self.fees.insert(job.token.clone(), prev + fee);
             self.record_reputation(&job.seller, &job.buyer, amount);
             Self::log("settled", job_id);
-            Self::pay(&job.token, &job.seller, payout, "nearsay settle")
+            Self::pay_safe(&job.token, &job.seller, payout, "nearsay settle")
         } else {
             job.status = JobStatus::Refunded;
             self.jobs.insert(job_id, job.clone());
             Self::log("refunded_unverified", job_id);
-            Self::pay(&job.token, &job.buyer, amount, "nearsay refund")
+            Self::pay_safe(&job.token, &job.buyer, amount, "nearsay refund")
         }
     }
 
@@ -211,7 +214,7 @@ impl Escrow {
         job.status = JobStatus::Refunded;
         self.jobs.insert(job_id, job.clone());
         Self::log("refunded_deadline", job_id);
-        Self::pay(&job.token, &job.buyer, job.amount.0, "nearsay refund")
+        Self::pay_safe(&job.token, &job.buyer, job.amount.0, "nearsay refund")
     }
 
     pub fn claim_fees(&mut self, token: AccountId) -> Promise {
@@ -219,7 +222,30 @@ impl Escrow {
         let amount = self.fees.get(&token).copied().unwrap_or(0);
         require!(amount > 0, "no fees");
         self.fees.insert(token.clone(), 0);
-        Self::pay(&token, &self.owner, amount, "nearsay fees")
+        Self::pay_safe(&token, &self.owner, amount, "nearsay fees")
+    }
+
+    /// Callback after every token transfer. If the transfer failed, the money is not lost:
+    /// it is credited to the recipient, who can pull it later with `withdraw`.
+    #[private]
+    pub fn on_paid(&mut self, token: AccountId, to: AccountId, amount: U128) {
+        if !is_promise_success() {
+            self.restore(&token, &to, amount.0);
+        }
+    }
+
+    /// Pull money that a failed transfer left owed to the caller.
+    pub fn withdraw(&mut self, token: AccountId) -> Promise {
+        let who = env::predecessor_account_id();
+        let key = Self::wkey(&token, &who);
+        let amount = self.withdrawable.get(&key).copied().unwrap_or(0);
+        require!(amount > 0, "nothing to withdraw");
+        self.withdrawable.insert(key, 0);
+        Self::pay_safe(&token, &who, amount, "nearsay withdraw")
+    }
+
+    pub fn get_withdrawable(&self, token: AccountId, account_id: AccountId) -> U128 {
+        U128(self.withdrawable.get(&Self::wkey(&token, &account_id)).copied().unwrap_or(0))
     }
 
     pub fn set_verifier(&mut self, verifier: AccountId) {
@@ -250,6 +276,29 @@ impl Escrow {
             .get(&job_id)
             .cloned()
             .unwrap_or_else(|| env::panic_str("no such job"))
+    }
+
+    fn wkey(token: &AccountId, who: &AccountId) -> String {
+        format!("{}|{}", token, who)
+    }
+
+    fn restore(&mut self, token: &AccountId, to: &AccountId, amount: u128) {
+        let key = Self::wkey(token, to);
+        let prev = self.withdrawable.get(&key).copied().unwrap_or(0);
+        self.withdrawable.insert(key, prev + amount);
+        env::log_str(&format!(
+            "EVENT_JSON:{{\"standard\":\"nearsay\",\"version\":\"1.0.0\",\"event\":\"transfer_failed_credited\",\"data\":{{\"to\":\"{}\",\"amount\":\"{}\"}}}}",
+            to, amount
+        ));
+    }
+
+    /// Transfer, then check the result. A failed transfer is credited back, never lost.
+    fn pay_safe(token: &AccountId, to: &AccountId, amount: u128, memo: &str) -> Promise {
+        Self::pay(token, to, amount, memo).then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(Gas::from_tgas(10))
+                .on_paid(token.clone(), to.clone(), U128(amount)),
+        )
     }
 
     fn pay(token: &AccountId, to: &AccountId, amount: u128, memo: &str) -> Promise {
@@ -397,6 +446,39 @@ mod tests {
         ctx(accounts(1), T0 + 10_001);
         let _ = c.refund(id);
         assert_eq!(c.get_job(id).unwrap().status, JobStatus::Refunded);
+    }
+
+    #[test]
+    fn failed_transfer_is_credited_and_can_be_withdrawn() {
+        let mut c = setup();
+        // A transfer of 990 to the seller failed: the callback logic credits it.
+        c.restore(&accounts(4), &accounts(2), 990);
+        assert_eq!(c.get_withdrawable(accounts(4), accounts(2)).0, 990);
+        ctx(accounts(2), T0 + 3);
+        let _ = c.withdraw(accounts(4));
+        assert_eq!(c.get_withdrawable(accounts(4), accounts(2)).0, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "nothing to withdraw")]
+    fn withdraw_with_nothing_owed_is_rejected() {
+        let mut c = setup();
+        ctx(accounts(2), T0);
+        let _ = c.withdraw(accounts(4));
+    }
+
+    #[test]
+    fn claim_fees_zeroes_the_ledger_and_failure_restores_it() {
+        let mut c = setup();
+        let id = funded_and_submitted(&mut c, 1_000);
+        ctx(accounts(3), T0 + 2);
+        let _ = c.settle(id, verdict(id, true, "provider_tee"));
+        ctx(accounts(0), T0 + 3);
+        let _ = c.claim_fees(accounts(4));
+        assert_eq!(c.accrued_fees(accounts(4)).0, 0);
+        // The fee transfer failed: the owner can still pull it.
+        c.restore(&accounts(4), &accounts(0), 10);
+        assert_eq!(c.get_withdrawable(accounts(4), accounts(0)).0, 10);
     }
 
     #[test]

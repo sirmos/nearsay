@@ -1,8 +1,8 @@
 use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
 use near_sdk::{
-    env, ext_contract, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise,
-    PromiseOrValue,
+    env, ext_contract, is_promise_success, near, require, AccountId, Gas, NearToken,
+    PanicOnDefault, Promise, PromiseOrValue,
 };
 
 #[ext_contract(ext_ft)]
@@ -51,6 +51,12 @@ pub struct Round {
     pub guesses: Vec<Guess>,
     pub real_index: Option<u32>,
     pub evidence: Option<Evidence>,
+    /// Who wrote each answer (None for the real one). Filled in at reveal, so the
+    /// liar leaderboard can be rebuilt from the chain.
+    pub authors: Vec<Option<AccountId>>,
+    /// Optional prize added by a sponsor. Goes to the players who guessed right.
+    pub sponsor: Option<AccountId>,
+    pub bonus: U128,
 }
 
 #[near(contract_state)]
@@ -126,6 +132,9 @@ impl Arena {
             guesses: vec![],
             real_index: None,
             evidence: None,
+            authors: vec![],
+            sponsor: None,
+            bonus: U128(0),
         };
         self.rounds.insert(id, round);
         Self::log("round_created", id);
@@ -140,6 +149,10 @@ impl Arena {
         msg: String,
     ) -> PromiseOrValue<U128> {
         let token = env::predecessor_account_id();
+        // msg "S:<round_id>" = a sponsor adds a prize to an open round.
+        if let Some(rest) = msg.trim().strip_prefix("S:") {
+            return self.sponsor_round(token, sender_id, amount, rest);
+        }
         let (rid, choice) = msg
             .trim()
             .split_once(':')
@@ -188,6 +201,7 @@ impl Arena {
         require!(expected == round.commit, "commit mismatch");
 
         round.evidence = Some(evidence.clone());
+        round.authors = authors.clone();
         let accepted = evidence.ok && self.accepted_kinds.contains(&evidence.signature_kind);
         if !accepted {
             self.refund_all(&round);
@@ -197,6 +211,7 @@ impl Arena {
             return;
         }
         self.pay_out(&round, real_index, &authors);
+        self.pay_bonus(&round, real_index, &authors);
         round.real_index = Some(real_index);
         round.status = RoundStatus::Settled;
         self.rounds.insert(round_id, round);
@@ -224,7 +239,20 @@ impl Arena {
         let amount = self.claimable.get(&key).copied().unwrap_or(0);
         require!(amount > 0, "nothing to claim");
         self.claimable.insert(key, 0);
-        Self::pay(&token, &who, amount)
+        Self::pay(&token, &who, amount).then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(Gas::from_tgas(10))
+                .on_claim_paid(token.clone(), who, U128(amount)),
+        )
+    }
+
+    /// Callback after a claim transfer. If it failed, the money goes back on the
+    /// player's claimable balance, so a failed transfer never loses a payout.
+    #[private]
+    pub fn on_claim_paid(&mut self, token: AccountId, who: AccountId, amount: U128) {
+        if !is_promise_success() {
+            self.credit(&token, &who, amount.0);
+        }
     }
 
     pub fn get_round(&self, round_id: u64) -> Option<Round> {
@@ -269,6 +297,56 @@ impl Arena {
         for g in &round.guesses {
             self.credit(&round.token, &g.player, round.stake.0);
         }
+        if let Some(s) = &round.sponsor {
+            self.credit(&round.token, s, round.bonus.0);
+        }
+    }
+
+    /// A sponsor adds a prize to an open round. One sponsor per round.
+    fn sponsor_round(
+        &mut self,
+        token: AccountId,
+        sponsor: AccountId,
+        amount: U128,
+        rid: &str,
+    ) -> PromiseOrValue<U128> {
+        let round_id: u64 = rid.parse().unwrap_or_else(|_| env::panic_str("bad round id"));
+        let mut round = self.load(round_id);
+        require!(round.status == RoundStatus::Open, "round not open");
+        require!(token == round.token, "wrong token");
+        require!(amount.0 > 0, "prize must be positive");
+        require!(env::block_timestamp_ms() < round.closes_ms, "guessing closed");
+        require!(round.sponsor.is_none(), "already sponsored");
+        round.sponsor = Some(sponsor);
+        round.bonus = amount;
+        self.rounds.insert(round_id, round);
+        Self::log("round_sponsored", round_id);
+        PromiseOrValue::Value(U128(0))
+    }
+
+    /// Split the sponsor's prize equally among the correct guessers. If nobody was
+    /// right, the sponsor gets it back. Rounding dust also goes back to the sponsor.
+    fn pay_bonus(&mut self, round: &Round, real: u32, authors: &[Option<AccountId>]) {
+        let Some(sponsor) = round.sponsor.clone() else { return };
+        let bonus = round.bonus.0;
+        if bonus == 0 {
+            return;
+        }
+        let winners: Vec<AccountId> = round
+            .guesses
+            .iter()
+            .filter(|g| g.choice == real && !authors.iter().flatten().any(|a| a == &g.player))
+            .map(|g| g.player.clone())
+            .collect();
+        if winners.is_empty() {
+            self.credit(&round.token, &sponsor, bonus);
+            return;
+        }
+        let share = bonus / winners.len() as u128;
+        for w in &winners {
+            self.credit(&round.token, w, share);
+        }
+        self.credit(&round.token, &sponsor, bonus - share * winners.len() as u128);
     }
 
     fn pay_out(&mut self, round: &Round, real: u32, authors: &[Option<AccountId>]) {
@@ -462,6 +540,67 @@ mod tests {
         assert_eq!(bal(&c, accounts(5)), 1_000); // refund only
         assert_eq!(bal(&c, accounts(2)), 990); // total 1000, fee 10, all to the winner
         assert_eq!(bal(&c, accounts(0)), 10);
+    }
+
+    #[test]
+    fn reveal_stores_the_authors() {
+        let mut c = setup();
+        let id = open_round(&mut c);
+        guess(&mut c, accounts(2), id, 1, T0 + 1);
+        reveal_ok(&mut c, id);
+        assert_eq!(c.get_round(id).unwrap().authors, authors_liar());
+    }
+
+    fn sponsor_acct() -> AccountId {
+        "sponsor.testnet".parse().unwrap()
+    }
+
+    fn sponsor(c: &mut Arena, id: u64, amount: u128, now: u64) {
+        ctx(accounts(4), now);
+        let _ = c.ft_on_transfer(sponsor_acct(), U128(amount), format!("S:{}", id));
+    }
+
+    #[test]
+    fn sponsor_prize_goes_to_correct_guessers() {
+        let mut c = setup();
+        let id = open_round(&mut c);
+        sponsor(&mut c, id, 501, T0 + 1);
+        guess(&mut c, accounts(2), id, 1, T0 + 2); // right
+        guess(&mut c, accounts(3), id, 1, T0 + 3); // right
+        reveal_ok(&mut c, id);
+        // pot 2000, fee 20, all net 1980 to winners = 990 each, plus 250 each from the prize
+        assert_eq!(bal(&c, accounts(2)), 990 + 250);
+        assert_eq!(bal(&c, accounts(3)), 990 + 250);
+        assert_eq!(bal(&c, sponsor_acct()), 1); // rounding dust back to the sponsor
+    }
+
+    #[test]
+    fn sponsor_prize_returns_when_nobody_is_right() {
+        let mut c = setup();
+        let id = open_round(&mut c);
+        sponsor(&mut c, id, 500, T0 + 1);
+        guess(&mut c, accounts(2), id, 0, T0 + 2);
+        reveal_ok(&mut c, id);
+        assert_eq!(bal(&c, sponsor_acct()), 500);
+    }
+
+    #[test]
+    fn sponsor_prize_is_refunded_when_round_is_voided() {
+        let mut c = setup();
+        let id = open_round(&mut c);
+        sponsor(&mut c, id, 500, T0 + 1);
+        ctx(accounts(3), CLOSE + 3_600_001);
+        c.void_round(id);
+        assert_eq!(bal(&c, sponsor_acct()), 500);
+    }
+
+    #[test]
+    #[should_panic(expected = "already sponsored")]
+    fn only_one_sponsor_per_round() {
+        let mut c = setup();
+        let id = open_round(&mut c);
+        sponsor(&mut c, id, 500, T0 + 1);
+        sponsor(&mut c, id, 500, T0 + 2);
     }
 
     #[test]

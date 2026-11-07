@@ -1,25 +1,39 @@
 # Nearsay
 
-Agents get paid only for provable work.
+**Agents get paid only for provable work.**
 
-A buyer's money waits in escrow on NEAR. The seller agent runs the job on NEAR AI Cloud and submits the
-result hash plus an evidence bundle. A verifier re-checks the hardware attestation (Intel TDX and NVIDIA GPU)
-and the signature over the exact response bytes. Only a result that checks out releases the payment.
-Every settled job feeds a reputation ledger, so an agent's record comes only from paid, verified work.
+A buyer's money waits in escrow on NEAR. A seller agent runs the job on NEAR AI Cloud and submits the result
+hash plus an evidence bundle. A verifier re-checks the hardware attestation (Intel TDX and NVIDIA GPU) and the
+signature over the exact response bytes. Only a result that checks out releases the payment. Every settled
+job feeds a reputation ledger, so an agent's record comes only from paid, verified work.
+
+On top of that sits **Spot the Machine**, a skill game that makes the proof something you can feel in 30
+seconds: each round, one answer was really written by the attested model and the others are written by liar
+agents. You guess, you stake, and the reveal ships the hardware proof.
 
 Built for the NEAR Hackathon with AI assistance (Claude Code). Runs on NEAR testnet with a free test token (NSC).
+Live dashboard: https://sirmos.github.io/nearsay/ (reads straight from testnet)
 
-Live dashboard: https://sirmos.github.io/nearsay/ (read-only, reads straight from testnet)
+## Why this is useful to NEAR
+
+- Every round and every job calls **NEAR AI Cloud** for real attested inference, so the game turns the hardware
+  proof into usage people understand.
+- Every stake, payout, pass and prize is a **NEAR transaction**. Sign-in is a NEAR account.
+- The reputation ledger is readable by any other NEAR contract (`get_reputation`), so another marketplace can
+  check an agent before hiring it.
+- A **season pass paid in NEAR** unlocks the hardest tiers and the daily Boss, and funds a prize pool.
+- **Sponsored rounds** let a project add a prize to a round about its own product.
 
 ## What runs, and how to check it
 
-| Part | What it does | Check it yourself |
+| Part | What it does | Check it |
 |---|---|---|
-| Escrow contract | Holds the buyer's tokens. Pays the seller only on an accepted verdict, otherwise refunds. | Step 1, 4 |
-| Reputation ledger | Built only from settled escrows, with a per-pair cap against friends inflating each other. | Step 1 |
+| Escrow | Holds tokens. Pays the seller only on an accepted verdict, otherwise refunds. A failed transfer is credited, never lost. | Step 1, 4 |
+| Reputation | Built only from settled escrows, with a per-pair cap so friends cannot inflate each other. | Step 1 |
 | Verifier | Checks Intel TDX quotes, RTMR3 replay, NVIDIA GPU evidence and the response signature. | Step 2 |
 | Guard | Spending-limit checks on signed mandates. 24 of 24 attacks blocked, 7 of 7 legitimate payments allowed. | Step 3 |
-| Arena contract | Players stake on which answer the model really produced. The real position is committed before guessing. | Step 4 |
+| Arena | Players stake on which answer the model really wrote. The real position is sealed with a hash before guessing. Sponsors can add prizes. | Step 4, 5 |
+| Season pass | Paid in NEAR. Unlocks tiers and the Boss. Fills a prize pool. | Step 1 |
 
 ## Try it: do X, see Y
 
@@ -28,8 +42,9 @@ Live dashboard: https://sirmos.github.io/nearsay/ (read-only, reads straight fro
     cd contracts/escrow && cargo test --lib
     cd ../arena && cargo test --lib
     cd ../credits && cargo test --lib
+    cd ../pass && cargo test --lib
 
-See all tests pass (escrow 7, arena 11, credits 2).
+See every test pass, including the failed-transfer recovery tests.
 
 **2. Verify a real hardware attestation**
 
@@ -37,82 +52,73 @@ See all tests pass (escrow 7, arena 11, credits 2).
     node src/cli.mjs ../fixtures/attestation-sample.json --gpu
 
 See `VERIFIED` for the gateway and the model, and GPU evidence `PASS`.
-`--offline` skips the Intel and NVIDIA network checks. An offline run is never reported as verified.
+`--offline` skips the Intel and NVIDIA network checks, and an offline run is never reported as verified.
 
 **3. Guard scoreboard**
 
     cd guard && npm install && npm test
     node src/bench.mjs
 
-See 24/24 attacks blocked, 7/7 legitimate payments allowed, then a list of what Guard does not stop.
-
-**4. Escrow and Arena on testnet**
+**4. A real attested job (needs a NEAR AI Cloud key with credits)**
 
     source scripts/testnet.env
-    bash scripts/demo.sh
+    NEARAI_API_KEY=... bash scripts/real-run.sh
 
-See a job settle (seller paid minus a 1% fee) and an Arena round pay out, then open the dashboard.
-These runs use hand-written test verdicts. They prove the money logic and they are labeled as test verdicts
-on the dashboard. They are not attested results.
+See a buyer fund an escrow, the seller call the model, the verifier re-check everything, and the escrow pay the
+seller minus a 1% fee. The dashboard shows a green Attested tag and links `evidence/job-<id>.json`.
 
-**5. Run a real attested job (needs a NEAR AI Cloud key with credits)**
+**5. Play and verify an Arena round**
 
-    source scripts/testnet.env
-    node services/buyer.mjs "Name one river in Africa." 5
-    NEARAI_API_KEY=... node services/seller.mjs <jobId> "Name one river in Africa."
-    node services/verifier.mjs --job <jobId>
-
-The buyer funds an escrow whose spec is the hash of the prompt. The seller calls the model, saves
-`evidence/job-<id>.json` (exact request and response bytes, attestation reports, signature) and submits the
-result hash. The verifier re-checks everything from that file and settles. The dashboard then shows a green
-Attested tag with a link to the evidence file, and anyone can re-run the verifier on it.
-Use `--dry` to see the verdict without settling.
-
-## Result of step 5
-
-A real attested job has settled on testnet: **job 3** on `sirmos-ns2-escrow.testnet`. The seller called
-`z-ai/glm-5.3-flash` on NEAR AI Cloud, the verifier re-checked the evidence, and the escrow paid the seller.
-The signature kind is `provider_tee`, so the signature is tied to the attested model, not just the gateway.
-
-Evidence: `evidence/job-3.json` (exact request and response bytes, attestation reports, signature; no keys).
-
-**Re-verify it yourself, no key needed**
+Open the dashboard, sign in with a NEAR testnet account (steps on the page), get free test credits and guess.
+After guessing closes the dealer reveals. Then check the dealer yourself, with no trust and no key:
 
     source scripts/testnet.env
     cd verifier && npm install && cd ..
-    node services/verifier.mjs --job 3 --dry
+    node services/verify-round.mjs <roundId>
 
-See `PASS` on every line (Intel-authenticated gateway and model reports, GPU evidence, signature, hashes) and `verdict ok=true, signature_kind=provider_tee`. `--dry` never settles anything.
+See `PASS` on every line: the evidence file matches the hash stored on chain, the sealed position matches the
+commitment, the question is the signed request, the real answer is the signed response, and the Intel, GPU and
+signature checks pass.
 
-The Arena rounds and the `demo.sh` job still use test verdicts and are labeled that way on the dashboard.
+## The game
 
-## Contracts (testnet)
+Players guess which answer the attested model wrote. Prompts are generated fresh for each round and the answer
+does not exist until the model writes it, so there is nothing to look up. Rank comes from rounds you play:
+Rookie, Detective, Verifier, Elite, Legend. Tiers unlock as you rank up. Tier 1 has 2 answers, tier 2 has 3 and
+tier 3 has 4, with decoys written to imitate the model more closely at each step. Payout rules, from the contract:
+the pot is every stake minus a 1% fee. Right guessers split it. If liars fooled anyone, liars take 20% of it. A
+round with no right guess and no fooled guess refunds everyone. A round whose evidence fails is voided and refunded.
 
-- Escrow: `sirmos-ns2-escrow.testnet`
-- Arena: `sirmos-ns2-arena.testnet`
-- Test credits (NSC): `sirmos-ns2-credits.testnet`
+## Contracts
+
+Addresses are in `scripts/testnet.env` and shown in the footer of the dashboard. Deploy a fresh set with
+`bash scripts/bootstrap.sh`.
 
 ## Tracks
 
-Main: AI Security and Defense (signed mandates, spending limits, verified results, reputation).
-Also fits: Agent Economy (paid agents), Games With Real Economies (Arena), Privacy and Private AI (TEE inference).
+Main: AI Security and Defense. Also fits: Agent Economy, Games With Real Economies, Privacy and Private AI.
 
 ## Known limits
 
-- The verifier is a trusted account. This design is trust-minimized, not trustless.
-- The seller picks the attestation nonce, so freshness rests on the evidence being checked at settlement time.
-- Arena trusts the dealer for which answer is real and for who wrote the decoys.
+- The verifier and the dealer are trusted accounts, so this is trust-minimized, not trustless. What the dealer
+  cannot do: change the sealed position after guessing opens, or pass off a decoy as real without producing a
+  signed response that matches. What the chain does not do: check the hardware proof itself. Anyone can, with
+  `verify-round.mjs`.
+- The dealer knows the answer in advance, so the dealer account is barred from guessing.
+- Tier locks and ranks are computed from on-chain rounds by the dashboard. They are not enforced by the contract.
+- The season pass prize payout is run by the contract owner. It is not trustless.
+- Real-money mainnet play is not built, and a real-money version could count as gambling in some places.
 - Testnet only, with a test token. No NEAR Intents or cross-chain payment yet.
+- The seller picks the attestation nonce, so freshness rests on checking the evidence at settlement time.
 - Guard is a set of deterministic checks, not a full policy engine.
-- The escrow's fee-claim function has a known owner bug that a redeploy fixes.
 
 ## Layout
 
-    contracts/   escrow, arena, credits (Rust, near-sdk)
+    contracts/   escrow, arena, credits, pass (Rust, near-sdk)
     verifier/    attestation and signature verification (Node)
     guard/       mandate checks and red-team corpus (Node)
-    services/    buyer, seller and verifier agents for real attested jobs
-    scripts/     testnet setup and end-to-end runs
-    evidence/    saved evidence bundles, one per attested job
-    web/         read-only dashboard
+    services/    buyer, seller, verifier and dealer agents, plus verify-round and sponsor
+    scripts/     bootstrap (fresh deployment) and real-run (one attested run)
+    evidence/    evidence bundles, one per attested job or round
+    web/         dashboard
     fixtures/    one real attestation sample (no keys)
