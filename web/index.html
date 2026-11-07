@@ -177,6 +177,23 @@
   .arenaBand .tag.wait { color: #9fc3f2; background: rgba(141,180,242,.12); }
   .arenaBand .tag.bad { color: var(--on-deep-bad); background: rgba(244,148,138,.12); }
   .arenaBand .tag.idle { color: var(--deep-soft); }
+  /* ---------- play ---------- */
+  .walletbar { margin: 0 0 8px; padding: 14px 16px; border: 1px solid var(--deep-rule); border-radius: 10px; background: var(--deep-2); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  .walletbar .who { font-size: 15px; }
+  .walletbar .who b { font-weight: 700; }
+  .walletbar .grow { flex: 1 1 220px; color: var(--deep-soft); font-size: 14.5px; }
+  .walletbar details { flex-basis: 100%; color: var(--deep-soft); font-size: 14px; }
+  .walletbar summary { cursor: pointer; }
+  .walletbar pre { margin: 8px 0 0; padding: 10px 12px; background: var(--deep); border: 1px solid var(--deep-rule); border-radius: 8px; overflow-x: auto; font: 12.5px/1.5 var(--mono); color: var(--deep-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .flash { flex-basis: 100%; font-size: 14.5px; }
+  .flash.err { color: var(--on-deep-bad); }
+  .flash.ok { color: var(--on-deep-proof); }
+  .pbtn { font: inherit; font-weight: 650; font-size: 14px; padding: 6px 12px; border-radius: 7px; cursor: pointer; border: 1px solid var(--deep-rule); background: transparent; color: var(--deep-ink); }
+  .pbtn.go { background: var(--on-deep-proof); border-color: var(--on-deep-proof); color: #05231a; }
+  .pbtn:hover:not(:disabled) { filter: brightness(1.1); }
+  .pbtn:disabled { opacity: .55; cursor: default; }
+  .answers .pbtn { margin-left: 8px; }
+  .playnote { margin: 8px 0 0; font-size: 14.5px; color: var(--deep-soft); display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
   footer { padding: 32px 0 60px; color: var(--soft); font-size: 14.5px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 </style>
@@ -246,6 +263,7 @@
     <section class="wrap">
       <h2 class="sec">Arena: spot the real answer</h2>
       <p class="intro">One answer was really produced by the model. The others are decoys written by liar agents. Players stake credits on the one they think is real. The real position is sealed before anyone guesses.</p>
+      <div class="walletbar" id="walletbar"></div>
       <div id="rounds"></div>
     </section>
   </div>
@@ -328,6 +346,7 @@ async function readList(account, method, idKey, cache) {
 function el(tag, attrs, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
     if (k === "class") n.className = v;
     else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
     else n.setAttribute(k, v);
@@ -464,16 +483,140 @@ function renderRounds() {
     return el("div", { class: "round" },
       el("div", {}, el("span", { class: "tag " + kind }, label), " ",
         el("span", { class: "sub" }, "Round " + r.id + ", " + r.guesses.length + (r.guesses.length === 1 ? " guess" : " guesses") + ", stake " + credits(r.stake)),
-        el("p", { class: "q" }, r.question), evLine),
+        el("p", { class: "q" }, r.question), evLine, playNote(r)),
       el("ul", { class: "answers" }, r.answers.map((a, i) => {
         const real = r.real_index === i, picks = r.guesses.filter((g) => g.choice === i).length;
         return el("li", { class: real ? "real" : "" }, el("span", { class: "letter" }, String.fromCharCode(65 + i)), el("span", {}, a),
-          real ? el("span", { class: "tag ok" }, "Real") : "", picks ? el("span", { class: "picks" }, picks + (picks === 1 ? " pick" : " picks")) : "");
+          real ? el("span", { class: "tag ok" }, "Real") : "", picks ? el("span", { class: "picks" }, picks + (picks === 1 ? " pick" : " picks")) : "", playBtn(r, i));
       })));
   }));
 }
 
-function renderAll() { renderSlip(); renderRail(); renderHonest(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); }
+function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderHonest(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); }
+
+// ---------- play: connect a wallet, stake on an answer, claim ----------
+const WALLET_VERSIONS = ["8.10.2", "8.9.15", "8.9.13", "8.9.5"];
+const STAKE_GAS = 100n * 10n ** 12n;
+let selector = null, modal = null, me = null, myBalance = null, myClaim = {}, walletState = "idle", flashMsg = null, busy = false;
+const num = (x) => Number(x);
+const openNow = (r) => r.status === "Open" && Date.now() < num(r.closes_ms);
+const myGuess = (r) => (me ? r.guesses.find((g) => Object.values(g).includes(me)) : null);
+
+async function loadWallet() {
+  if (selector || walletState === "loading") return;
+  walletState = "loading"; renderWallet();
+  for (const v of WALLET_VERSIONS) {
+    try {
+      const base = "https://esm.sh/@near-wallet-selector/";
+      const [core, ui] = await Promise.all([import(base + "core@" + v), import(base + "modal-ui@" + v)]);
+      const mods = [];
+      for (const [pkg, fn] of [["my-near-wallet", "setupMyNearWallet"], ["meteor-wallet", "setupMeteorWallet"]]) {
+        try { const m = await import(base + pkg + "@" + v); mods.push(m[fn]()); } catch (e) { console.warn("wallet module skipped", pkg, e); }
+      }
+      if (!mods.length) throw new Error("no wallet modules loaded");
+      const css = document.createElement("link");
+      css.rel = "stylesheet"; css.href = "https://cdn.jsdelivr.net/npm/@near-wallet-selector/modal-ui@" + v + "/styles.css";
+      document.head.append(css);
+      selector = await core.setupWalletSelector({ network: "testnet", modules: mods });
+      modal = ui.setupModal(selector, { contractId: CFG.arena });
+      const sync = (state) => { const a = (state.accounts || []).find((x) => x.active) || (state.accounts || [])[0]; me = a ? a.accountId : null; refreshMine(); };
+      sync(selector.store.getState());
+      selector.store.observable.subscribe(sync);
+      walletState = "ready"; renderWallet();
+      return;
+    } catch (e) { console.warn("wallet library " + v + " failed", e); }
+  }
+  walletState = "unavailable"; renderWallet();
+}
+async function connect() { await loadWallet(); if (modal) modal.show(); }
+async function signOut() { try { const w = await selector.wallet(); await w.signOut(); } catch (e) { console.warn(e); } me = null; myBalance = null; renderAll(); }
+async function send(receiver, actions) {
+  if (busy) return;
+  busy = true; flashMsg = null; renderWallet();
+  try {
+    const w = await selector.wallet();
+    await w.signAndSendTransaction({ receiverId: receiver, actions: actions.map(([methodName, args, gas, deposit]) => ({ type: "FunctionCall", params: { methodName, args, gas: String(gas), deposit: deposit || "0" } })) });
+    flashMsg = { kind: "ok", text: "Transaction sent. Updating in a few seconds." };
+    setTimeout(refresh, 3500); setTimeout(refresh, 9000);
+  } catch (e) { flashMsg = { kind: "err", text: "The wallet did not send it: " + (e && e.message ? e.message : e) }; }
+  busy = false; renderWallet(); renderRounds();
+}
+const getCredits = () => send(CFG.token, [["register", { account_id: me }, 30n * 10n ** 12n], ["faucet", { amount: "20000000" }, 30n * 10n ** 12n]]);
+const stakeOn = (r, i) => {
+  if (BigInt(myBalance ?? "0") < BigInt(r.stake)) { flashMsg = { kind: "err", text: "Not enough test credits. Use Get test credits first." }; return renderWallet(); }
+  return send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.arena, amount: String(r.stake), msg: r.id + ":" + i }, STAKE_GAS, "1"]]);
+};
+const claim = () => send(CFG.arena, [["claim", { token: CFG.token }, STAKE_GAS]]);
+
+async function refreshMine() {
+  if (!me) { myBalance = null; myClaim = {}; return renderWallet(); }
+  try { myBalance = await rpcView(CFG.token, "ft_balance_of", { account_id: me }); } catch (e) { /* keep the last value */ }
+  try { const c = await rpcView(CFG.arena, "get_claimable", { account_id: me, token: CFG.token }); myClaim = { amount: c }; } catch (e) { myClaim = {}; }
+  renderWallet(); renderRounds();
+}
+const cliLine = (r, i) => "near contract call-function as-transaction " + CFG.token + " ft_transfer_call json-args '" +
+  JSON.stringify({ receiver_id: CFG.arena, amount: String(r.stake), msg: r.id + ":" + i }) + "' prepaid-gas '100 Tgas' attached-deposit '1 yoctoNEAR' sign-as YOUR_ACCOUNT.testnet network-config testnet sign-with-legacy-keychain send";
+
+function renderWallet() {
+  const bar = document.getElementById("walletbar");
+  if (!bar) return;
+  const kids = [];
+  const open = rounds.filter(openNow);
+  if (walletState === "loading") kids.push(el("span", { class: "grow" }, "Loading wallet options…"));
+  else if (me) {
+    kids.push(el("span", { class: "who" }, "Playing as ", el("b", {}, me), myBalance !== null ? " · " + credits(myBalance) : ""));
+    if (myBalance !== null && BigInt(myBalance) === 0n) kids.push(el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: getCredits }, "Get test credits"));
+    kids.push(el("button", { class: "pbtn", type: "button", onclick: signOut }, "Sign out"));
+  } else {
+    kids.push(el("button", { class: "pbtn go", type: "button", onclick: connect }, "Connect wallet to play"));
+    kids.push(el("span", { class: "grow" }, "Use any NEAR testnet account. Test credits are free and have no value."));
+  }
+  if (walletState === "unavailable") kids.push(el("span", { class: "flash err" }, "The wallet library could not load in this browser. You can still play from a terminal, see below."));
+  if (flashMsg) kids.push(el("span", { class: "flash " + flashMsg.kind, role: "status" }, flashMsg.text));
+  if (open.length && (walletState === "unavailable" || !me)) {
+    const r = open[open.length - 1];
+    kids.push(el("details", {}, el("summary", {}, "Prefer a terminal? Stake on round " + r.id + " with the near CLI"),
+      el("pre", {}, "# answer A is 0, B is 1, C is 2. Change the last digit of msg to pick.\n" + cliLine(r, 0))));
+  }
+  bar.replaceChildren(...kids);
+}
+function playBtn(r, i) {
+  const mine = myGuess(r);
+  if (mine && mine.choice === i) return el("span", { class: "tag ok" }, "Your pick");
+  if (!openNow(r)) return "";
+  if (!me) return el("button", { class: "pbtn", type: "button", onclick: connect }, "Play");
+  if (mine) return "";
+  return el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: () => stakeOn(r, i) }, "Stake " + credits(r.stake));
+}
+function playNote(r) {
+  const mine = myGuess(r);
+  if (openNow(r)) return el("p", { class: "playnote" }, el("span", { class: "count", "data-closes": String(num(r.closes_ms)) }, ""), mine ? el("span", {}, "You have guessed. Waiting for the reveal.") : el("span", {}, "Pick the answer you think the model really wrote."));
+  if (r.status === "Open") return el("p", { class: "playnote" }, "Guessing is closed. Waiting for the dealer to reveal the real answer.");
+  if (r.status === "Settled" || r.status === "Voided") {
+    if (me && mine) {
+      const got = myClaim.amount && BigInt(myClaim.amount) > 0n;
+      return el("p", { class: "playnote" }, got ? el("span", {}, "You can claim " + credits(myClaim.amount) + ".") : el("span", {}, r.status === "Voided" ? "This round was voided and your stake is refundable." : "Round over."),
+        got || r.status === "Voided" ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: claim }, "Claim") : "");
+    }
+  }
+  return "";
+}
+function tickCountdowns() {
+  document.querySelectorAll(".count[data-closes]").forEach((n) => {
+    const ms = Number(n.dataset.closes) - Date.now();
+    if (ms <= 0) { n.textContent = "Guessing just closed."; return; }
+    const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+    n.textContent = "Closes in " + (m ? m + "m " : "") + String(s).padStart(m ? 2 : 1, "0") + "s.";
+  });
+}
+setInterval(tickCountdowns, 1000);
+// Came back from a redirect wallet? Say so, tidy the address bar, and restore the session.
+if (/[?&](transactionHashes|errorCode)=/.test(location.search)) {
+  flashMsg = /errorCode=/.test(location.search) ? { kind: "err", text: "The wallet reported an error. Nothing was sent." } : { kind: "ok", text: "Transaction sent. Updating in a few seconds." };
+  history.replaceState(null, "", location.pathname + location.hash);
+  setTimeout(refresh, 3500);
+}
+try { if (Object.keys(localStorage).some((k) => k.startsWith("near-wallet-selector"))) loadWallet(); } catch (e) { /* storage blocked: the Connect button still works */ }
 
 // ---------- refresh loop ----------
 const live = document.getElementById("live"), livetext = document.getElementById("livetext");
@@ -487,7 +630,7 @@ async function refresh() {
     ]);
     jobs = j; rounds = r; reps = rp; bals = bl;
     failures = 0; hasData = true;
-    renderAll();
+    renderAll(); refreshMine();
     live.className = "live fresh";
     livetext.textContent = "Live from NEAR testnet, updated " + new Date().toLocaleTimeString();
   } catch (e) {
