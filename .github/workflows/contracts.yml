@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev pkg-config libssl-dev
       - run: cargo install cargo-near --locked
       - name: Test
         run: for c in credits escrow arena pass; do (cd contracts/$c && cargo test --lib) || exit 1; done
