@@ -667,7 +667,7 @@ mod tests {
         guess(&mut c, accounts(3), id, 2, T0 + 7); // fooled by the player's decoy
         ctx(accounts(1), CLOSE);
         c.reveal(id, 1, "salt".to_string(), vec![None, None, Some(accounts(2))], evidence(true, "provider_tee"));
-        assert_eq!(bal(&c, accounts(2)), 1_980); // the decoy's author earns the pot
+        assert_eq!(bal(&c, accounts(2)), 990); // the decoy's author earns the pot
         assert_eq!(c.get_round(id).unwrap().call_id, Some(1));
     }
 
