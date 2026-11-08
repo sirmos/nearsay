@@ -83,7 +83,14 @@ signature checks pass.
 ## The game
 
 Players guess which answer the attested model wrote. Prompts are generated fresh for each round and the answer
-does not exist until the model writes it, so there is nothing to look up. Rank comes from rounds you play:
+does not exist until the model writes it, so there is nothing to look up. **Be the Liar.** The dealer opens a public call with a prompt. Players write fake answers. The dealer then builds a
+round from the machine's real attested answer plus some player decoys, topped up by the liar agent. If a decoy fools
+players, its author earns the liar share. The contract checks at reveal that every player decoy is credited to the
+player who wrote it, so the dealer cannot steal or invent authorship. Prompts come in lanes (everyday, work, care,
+crypto, creative). The lane changes the setting, never the skill: the question is always "which one did the machine
+write?", and prompts ask for voice and writing, never for facts that can be looked up.
+
+Rank comes from rounds you play:
 Rookie, Detective, Verifier, Elite, Legend. Tiers unlock as you rank up. Tier 1 has 2 answers, tier 2 has 3 and
 tier 3 has 4, with decoys written to imitate the model more closely at each step. Payout rules, from the contract:
 the pot is every stake minus a 1% fee. Right guessers split it. If liars fooled anyone, liars take 20% of it. A
@@ -105,6 +112,7 @@ Main: AI Security and Defense. Also fits: Agent Economy, Games With Real Economi
   signed response that matches. What the chain does not do: check the hardware proof itself. Anyone can, with
   `verify-round.mjs`.
 - The dealer knows the answer in advance, so the dealer account is barred from guessing.
+- Player decoys are written freely. The dealer chooses which ones to use, so the dealer can favour some players.
 - Tier locks and ranks are computed from on-chain rounds by the dashboard. They are not enforced by the contract.
 - The season pass prize payout is run by the contract owner. It is not trustless.
 - Real-money mainnet play is not built, and a real-money version could count as gambling in some places.
@@ -118,7 +126,7 @@ Main: AI Security and Defense. Also fits: Agent Economy, Games With Real Economi
     verifier/    attestation and signature verification (Node)
     guard/       mandate checks and red-team corpus (Node)
     services/    buyer, seller, verifier and dealer agents, plus verify-round and sponsor
-    scripts/     bootstrap (fresh deployment) and real-run (one attested run)
+    scripts/     bootstrap (fresh deployment), redeploy-arena, real-run (one attested run)
     evidence/    evidence bundles, one per attested job or round
     web/         dashboard
     fixtures/    one real attestation sample (no keys)

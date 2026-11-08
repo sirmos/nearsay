@@ -223,6 +223,12 @@
   .passbox { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 0 0 14px; padding: 12px 16px; border: 1px solid var(--deep-rule); border-radius: 10px; background: var(--deep-2); color: var(--deep-soft); font-size: 14.5px; }
   .passbox b { color: var(--deep-ink); font-weight: 600; }
   .passbox .grow { flex: 1 1 260px; }
+  .callbox { margin: 0 0 14px; padding: 14px 18px; border: 1px solid var(--deep-rule); border-radius: 10px; background: var(--deep-2); }
+  .callbox h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+  .callbox p { margin: 0 0 8px; color: var(--deep-soft); font-size: 14.5px; }
+  .callbox textarea { width: 100%; min-height: 72px; resize: vertical; font: inherit; color: var(--deep-ink); background: var(--deep); border: 1px solid var(--deep-rule); border-radius: 8px; padding: 10px 12px; }
+  .callbox .row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 8px; color: var(--deep-soft); font-size: 14px; }
+  .callbox + .callbox { margin-top: -4px; }
   footer { padding: 32px 0 60px; color: var(--soft); font-size: 14.5px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 </style>
@@ -293,6 +299,7 @@
       <div id="hud"></div>
       <div id="tiers" class="tiers"></div>
       <div id="passbox"></div>
+      <div id="liarcall"></div>
       <div class="walletbar" id="walletbar"></div>
       <div id="rounds"></div>
     </section>
@@ -505,7 +512,7 @@ function renderHowto() {
     el("div", { class: "howto" },
       el("div", { class: "hcard" }, el("h3", {}, "How a round works"),
         el("ol", {},
-          el("li", {}, "The dealer asks a question. One answer was really written by an attested model on NEAR AI Cloud. The others are decoys from liar agents."),
+          el("li", {}, "The dealer asks a question. One answer was really written by an attested model on NEAR AI Cloud. The others are decoys, written by liar agents or by other players."),
           el("li", {}, "The dealer seals the real position with a hash before anyone guesses, so it cannot be changed later."),
           el("li", {}, "You stake test credits on the answer you think is real."),
           el("li", {}, "After the deadline the dealer reveals the position and the hardware proof for the real answer. The contract checks both before paying anyone."))),
@@ -533,10 +540,12 @@ const RANKS = [["Rookie", 0], ["Detective", 25], ["Verifier", 80], ["Elite", 180
 const TIER = { 1: { name: "Easy", need: 0 }, 2: { name: "Medium", need: 25 }, 3: { name: "Hard", need: 80 }, 4: { name: "Daily Boss", need: 0, pass: true } };
 const tierOf = (r) => Math.min(Math.max(r.answers.length - 1, 1), 4);
 const rankOf = (pts) => { let i = 0; RANKS.forEach(([, n], k) => { if (pts >= n) i = k; }); return { i, name: RANKS[i][0], next: RANKS[i + 1] || null, floor: RANKS[i][1] }; };
+let calls = [], drafts = {};
 let pass = { price: null, pool: null, sold: null, mine: false }, selTier = null;
 const myPts = () => { const e = me ? buildBoard(true).find((x) => x.player === me) : null; return e ? e.points : 0; };
 const tierOpen = (t) => { const T = TIER[t]; if (!me) return true; return T.pass ? pass.mine : myPts() >= T.need; };
 const lockNote = (t) => { const T = TIER[t]; return T.pass ? "Needs a season pass" : "Reach " + RANKS.find(([, n]) => n >= T.need)[0] + " (" + T.need + " points)"; };
+const showQ = (q) => String(q).replace(/ Reply with only the text, at most two sentences\.$/, "");
 const POINTS = { played: 1, correct: 10, streakStep: 2, streakCap: 10 };
 const playerOf = (g) => { for (const v of Object.values(g)) if (typeof v === "string" && /\.(testnet|near)$/.test(v)) return v; return null; };
 function buildBoard(includeOurs = false) {
@@ -631,6 +640,33 @@ async function refreshPass() {
   renderPass(); renderHud(); renderTiers();
 }
 
+async function readCalls() {
+  const out = [];
+  for (let i = 1; i < 100; i++) { const c = await rpcView(CFG.arena, "get_call", { call_id: i }); if (!c) break; out.push(c); }
+  return out;
+}
+function renderCalls() {
+  const box = document.getElementById("liarcall");
+  const open = calls.filter((c) => Date.now() < Number(c.closes_ms));
+  if (!open.length) return box.replaceChildren();
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "TEXTAREA") return; // do not wipe what someone is typing
+  box.replaceChildren(...open.map((c) => {
+    const mine = me && c.decoys.some((d) => d.author === me);
+    const ta = el("textarea", { maxlength: "280", placeholder: "Write a fake answer that sounds like the machine wrote it", "aria-label": "Your decoy" });
+    ta.value = drafts[c.id] || "";
+    ta.addEventListener("input", () => { drafts[c.id] = ta.value; });
+    return el("div", { class: "callbox" },
+      el("h3", {}, "Be the Liar: write a decoy"),
+      el("p", {}, showQ(c.prompt)),
+      el("p", {}, "The best decoys go into the next round next to the machine's real answer. If yours fools players, you earn the liar share. " + c.decoys.length + (c.decoys.length === 1 ? " decoy" : " decoys") + " so far."),
+      mine ? el("span", { class: "tag ok" }, "Your decoy is in") : [ta,
+        el("div", { class: "row" },
+          me ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: () => { const t = (drafts[c.id] || "").trim(); if (!t) { flashMsg = { kind: "err", text: "Write something first." }; return renderWallet(); } send(CFG.arena, [["submit_decoy", { call_id: c.id, text: t }, STAKE_GAS]]); } }, "Submit my decoy")
+             : el("button", { class: "pbtn", type: "button", onclick: connect }, "Sign in to submit"),
+          el("span", { class: "count", "data-closes": String(Number(c.closes_ms)) }, ""))]);
+  }));
+}
+
 // ---------- arena ----------
 const roundTag = { Open: ["wait", "Open"], Settled: ["ok", "Settled"], Voided: ["bad", "Voided and refunded"] };
 function renderRounds() {
@@ -644,9 +680,9 @@ function renderRounds() {
       ? el("p", { class: "ev" }, evTag(k), el("span", {}, "Model " + ev.model_id), el("span", {}, "Signature " + ev.signature_kind), el("span", {}, "Evidence ", k === "attested" ? el("a", { href: CFG.evidenceBase + "round-" + r.id + ".json", target: "_blank", rel: "noopener" }, short(ev.attestation_hash)) : el("span", { class: "hash" }, short(ev.attestation_hash))))
       : el("p", { class: "ev" }, el("span", { class: "tag idle" }, "Sealed"), el("span", {}, "Real answer committed: ", el("span", { class: "hash" }, short(r.commit))));
     return el("div", { class: "round" },
-      el("div", {}, el("span", { class: "tag " + kind }, label), " ", el("span", { class: "tag idle" }, TIER[tierOf(r)].name), " ", (r.bonus && BigInt(r.bonus) > 0n) ? el("span", { class: "tag ok" }, "Prize +" + credits(r.bonus)) : "", " ",
+      el("div", {}, el("span", { class: "tag " + kind }, label), " ", el("span", { class: "tag idle" }, TIER[tierOf(r)].name), " ", (r.bonus && BigInt(r.bonus) > 0n) ? el("span", { class: "tag ok" }, "Prize +" + credits(r.bonus)) : "", " ", (r.call_id !== null && r.call_id !== undefined) ? el("span", { class: "tag idle" }, "Player decoys") : "", " ",
         el("span", { class: "sub" }, "Round " + r.id + ", " + r.guesses.length + (r.guesses.length === 1 ? " guess" : " guesses") + ", stake " + credits(r.stake)),
-        el("p", { class: "q" }, r.question), evLine, playNote(r)),
+        el("p", { class: "q" }, showQ(r.question)), evLine, playNote(r)),
       el("ul", { class: "answers" }, r.answers.map((a, i) => {
         const real = r.real_index === i, picks = r.guesses.filter((g) => g.choice === i).length;
         return el("li", { class: real ? "real" : "" }, el("span", { class: "letter" }, String.fromCharCode(65 + i)), el("span", {}, a),
@@ -655,7 +691,7 @@ function renderRounds() {
   }));
 }
 
-function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); }
+function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); }
 
 // ---------- play: connect a wallet, stake on an answer, claim ----------
 const WALLET_VERSIONS = ["8.10.2", "8.9.15", "8.9.13", "8.9.5"];
@@ -765,10 +801,17 @@ function playNote(r) {
     if (me && mine) {
       const got = myClaim.amount && BigInt(myClaim.amount) > 0n;
       return el("p", { class: "playnote" }, got ? el("span", {}, "You can claim " + credits(myClaim.amount) + ".") : el("span", {}, r.status === "Voided" ? "This round was voided and your stake is refundable." : "Round over."),
-        got || r.status === "Voided" ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: claim }, "Claim") : "");
+        got || r.status === "Voided" ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: claim }, "Claim") : "", r.status === "Settled" ? shareLink(r, mine) : "");
     }
   }
   return "";
+}
+function shareLink(r, mine) {
+  const right = mine.choice === r.real_index;
+  const rk = rankOf(myPts()).name;
+  const text = (right ? "I spotted the machine" : "The machine fooled me") + " in Spot the Machine, round " + r.id + " (" + TIER[tierOf(r)].name + "). Rank: " + rk + ". Can you tell which answer the attested AI really wrote?";
+  const href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(location.origin + location.pathname);
+  return el("a", { class: "pbtn", href, target: "_blank", rel: "noopener" }, "Share result");
 }
 function tickCountdowns() {
   document.querySelectorAll(".count[data-closes]").forEach((n) => {
@@ -798,6 +841,7 @@ async function refresh() {
       Promise.all(Object.values(CFG.accounts).map(async (account) => ({ account, balance: await rpcView(CFG.token, "ft_balance_of", { account_id: account }) }))),
     ]);
     jobs = j; rounds = r; reps = rp; bals = bl;
+    try { calls = await readCalls(); } catch (e) { calls = []; }
     failures = 0; hasData = true;
     renderAll(); refreshMine(); refreshPass();
     live.className = "live fresh";

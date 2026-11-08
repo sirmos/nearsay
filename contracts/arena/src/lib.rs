@@ -25,6 +25,25 @@ pub struct Guess {
     pub choice: u32,
 }
 
+/// A decoy written by a player for an open call.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug)]
+pub struct Decoy {
+    pub author: AccountId,
+    pub text: String,
+}
+
+/// A public call for decoys. Players write fake answers to `prompt` before `closes_ms`.
+/// The dealer then builds a round from the real attested answer plus some of these decoys.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug)]
+pub struct Call {
+    pub id: u64,
+    pub prompt: String,
+    pub closes_ms: u64,
+    pub decoys: Vec<Decoy>,
+}
+
 /// Evidence supplied by the verifier at reveal. Stored for audit.
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug)]
@@ -57,6 +76,8 @@ pub struct Round {
     /// Optional prize added by a sponsor. Goes to the players who guessed right.
     pub sponsor: Option<AccountId>,
     pub bonus: U128,
+    /// The call whose player-written decoys went into this round, if any.
+    pub call_id: Option<u64>,
 }
 
 #[near(contract_state)]
@@ -70,6 +91,8 @@ pub struct Arena {
     max_guessers: u32,
     grace_ms: u64,
     next_round_id: u64,
+    next_call_id: u64,
+    calls: LookupMap<u64, Call>,
     rounds: LookupMap<u64, Round>,
     claimable: LookupMap<String, u128>,
 }
@@ -97,6 +120,8 @@ impl Arena {
             max_guessers,
             grace_ms,
             next_round_id: 1,
+            next_call_id: 1,
+            calls: LookupMap::new(b"k".to_vec()),
             rounds: LookupMap::new(b"r".to_vec()),
             claimable: LookupMap::new(b"c".to_vec()),
         }
@@ -112,6 +137,66 @@ impl Arena {
         answers: Vec<String>,
         commit: String,
         closes_ms: u64,
+    ) -> u64 {
+        self.make_round(question, token, stake, answers, commit, closes_ms, None)
+    }
+
+    /// Same as create_round, but links the call whose decoys are used. At reveal the
+    /// contract checks that every player-written decoy is credited to its real author.
+    pub fn create_round_from_call(
+        &mut self,
+        call_id: u64,
+        token: AccountId,
+        stake: U128,
+        answers: Vec<String>,
+        commit: String,
+        closes_ms: u64,
+    ) -> u64 {
+        let call = self.calls.get(&call_id).cloned().unwrap_or_else(|| env::panic_str("no such call"));
+        require!(env::block_timestamp_ms() >= call.closes_ms, "call still open");
+        self.make_round(call.prompt, token, stake, answers, commit, closes_ms, Some(call_id))
+    }
+
+    /// Dealer opens a call for decoys. Anyone except the dealer can answer it.
+    pub fn open_call(&mut self, prompt: String, closes_ms: u64) -> u64 {
+        require!(env::predecessor_account_id() == self.dealer, "only dealer");
+        require!(closes_ms > env::block_timestamp_ms(), "close time in the past");
+        let id = self.next_call_id;
+        self.next_call_id += 1;
+        self.calls.insert(id, Call { id, prompt, closes_ms, decoys: vec![] });
+        Self::log("call_opened", id);
+        id
+    }
+
+    /// Write a decoy. One per account per call, at most 280 characters, no copies.
+    pub fn submit_decoy(&mut self, call_id: u64, text: String) {
+        let who = env::predecessor_account_id();
+        require!(who != self.dealer, "dealer cannot write decoys");
+        let mut call = self.calls.get(&call_id).cloned().unwrap_or_else(|| env::panic_str("no such call"));
+        require!(env::block_timestamp_ms() < call.closes_ms, "call closed");
+        let text = text.trim().to_string();
+        require!(!text.is_empty() && text.chars().count() <= 280, "decoy must be 1 to 280 characters");
+        require!(call.decoys.len() < 30, "call is full");
+        require!(!call.decoys.iter().any(|d| d.author == who), "you already wrote a decoy");
+        require!(!call.decoys.iter().any(|d| d.text == text), "someone already wrote that");
+        call.decoys.push(Decoy { author: who, text });
+        self.calls.insert(call_id, call);
+        Self::log("decoy_submitted", call_id);
+    }
+
+    pub fn get_call(&self, call_id: u64) -> Option<Call> {
+        self.calls.get(&call_id).cloned()
+    }
+
+    fn make_round(
+        &mut self,
+        question: String,
+        token: AccountId,
+        stake: U128,
+        answers: Vec<String>,
+        commit: String,
+        closes_ms: u64,
+        call_id: Option<u64>,
     ) -> u64 {
         require!(env::predecessor_account_id() == self.dealer, "only dealer");
         require!(stake.0 > 0, "stake must be positive");
@@ -135,6 +220,7 @@ impl Arena {
             authors: vec![],
             sponsor: None,
             bonus: U128(0),
+            call_id,
         };
         self.rounds.insert(id, round);
         Self::log("round_created", id);
@@ -197,6 +283,21 @@ impl Arena {
         require!(authors.len() == round.answers.len(), "authors length mismatch");
         require!((real_index as usize) < round.answers.len(), "bad index");
         require!(authors[real_index as usize].is_none(), "real answer has no author");
+        if let Some(cid) = round.call_id {
+            let call = self.calls.get(&cid).cloned().unwrap_or_else(|| env::panic_str("no such call"));
+            for (i, ans) in round.answers.iter().enumerate() {
+                // A player's decoy must be credited to that player.
+                if let Some(d) = call.decoys.iter().find(|d| &d.text == ans) {
+                    require!(authors[i].as_ref() == Some(&d.author), "decoy author mismatch");
+                }
+                // And nobody who wrote a decoy can be credited for text they did not write.
+                if let Some(a) = &authors[i] {
+                    if call.decoys.iter().any(|d| &d.author == a) {
+                        require!(call.decoys.iter().any(|d| &d.author == a && &d.text == ans), "author did not write that answer");
+                    }
+                }
+            }
+        }
         let expected = Self::hex_sha256(format!("{}:{}", real_index, salt).as_bytes());
         require!(expected == round.commit, "commit mismatch");
 
@@ -540,6 +641,82 @@ mod tests {
         assert_eq!(bal(&c, accounts(5)), 1_000); // refund only
         assert_eq!(bal(&c, accounts(2)), 990); // total 1000, fee 10, all to the winner
         assert_eq!(bal(&c, accounts(0)), 10);
+    }
+
+    fn player_decoy_round(c: &mut Arena) -> u64 {
+        // player accounts(2) writes decoy "x"; answers are ["a", "b" (real), "x"].
+        ctx(accounts(1), T0);
+        let call = c.open_call("Name a river".to_string(), T0 + 5);
+        ctx(accounts(2), T0 + 1);
+        c.submit_decoy(call, "x".to_string());
+        ctx(accounts(1), T0 + 6);
+        c.create_round_from_call(
+            call,
+            accounts(4),
+            U128(STAKE),
+            vec!["a".to_string(), "b".to_string(), "x".to_string()],
+            Arena::hex_sha256(b"1:salt"),
+            CLOSE,
+        )
+    }
+
+    #[test]
+    fn player_written_decoy_is_credited_to_its_author() {
+        let mut c = setup();
+        let id = player_decoy_round(&mut c);
+        guess(&mut c, accounts(3), id, 2, T0 + 7); // fooled by the player's decoy
+        ctx(accounts(1), CLOSE);
+        c.reveal(id, 1, "salt".to_string(), vec![None, None, Some(accounts(2))], evidence(true, "provider_tee"));
+        assert_eq!(bal(&c, accounts(2)), 1_980); // the decoy's author earns the pot
+        assert_eq!(c.get_round(id).unwrap().call_id, Some(1));
+    }
+
+    #[test]
+    #[should_panic(expected = "decoy author mismatch")]
+    fn dealer_cannot_steal_a_players_decoy() {
+        let mut c = setup();
+        let id = player_decoy_round(&mut c);
+        ctx(accounts(1), CLOSE);
+        c.reveal(id, 1, "salt".to_string(), vec![None, None, Some(accounts(5))], evidence(true, "provider_tee"));
+    }
+
+    #[test]
+    #[should_panic(expected = "author did not write that answer")]
+    fn dealer_cannot_credit_a_player_for_text_they_did_not_write() {
+        let mut c = setup();
+        let id = player_decoy_round(&mut c);
+        ctx(accounts(1), CLOSE);
+        c.reveal(id, 1, "salt".to_string(), vec![Some(accounts(2)), None, Some(accounts(2))], evidence(true, "provider_tee"));
+    }
+
+    #[test]
+    #[should_panic(expected = "you already wrote a decoy")]
+    fn one_decoy_per_player() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let call = c.open_call("q".to_string(), T0 + 50);
+        ctx(accounts(2), T0 + 1);
+        c.submit_decoy(call, "one".to_string());
+        c.submit_decoy(call, "two".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "call closed")]
+    fn late_decoy_is_rejected() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let call = c.open_call("q".to_string(), T0 + 5);
+        ctx(accounts(2), T0 + 6);
+        c.submit_decoy(call, "late".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "dealer cannot write decoys")]
+    fn dealer_cannot_write_decoys() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let call = c.open_call("q".to_string(), T0 + 50);
+        c.submit_decoy(call, "mine".to_string());
     }
 
     #[test]

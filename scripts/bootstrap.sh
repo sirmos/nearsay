@@ -43,8 +43,12 @@ export NS_LIAR=$(acct liar)
 export NS_PASS=$(acct pass)
 ENV
 
-echo "=== 3/5 building contracts (a few minutes)"
-build() { (cd "contracts/$1" && cargo near build non-reproducible-wasm) >&2 && find "contracts/$1/target/near" -maxdepth 2 -name '*.wasm' | head -1; }
+echo "=== 3/5 building contracts (a few minutes, or instant with NS_WASM_DIR)"
+build() {
+  # NS_WASM_DIR = a folder of contracts built elsewhere (for example by the GitHub workflow). No Rust needed.
+  if [ -n "${NS_WASM_DIR:-}" ]; then find "$NS_WASM_DIR" -name "$1.wasm" | head -1; return; fi
+  (cd "contracts/$1" && cargo near build non-reproducible-wasm) >&2 && find "contracts/$1/target/near" -maxdepth 2 -name '*.wasm' | head -1
+}
 W_CREDITS="$(build credits)"; W_ESCROW="$(build escrow)"; W_ARENA="$(build arena)"; W_PASS="$(build pass)"
 echo "built: $W_CREDITS $W_ESCROW $W_ARENA $W_PASS"
 
