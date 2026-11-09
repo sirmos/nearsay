@@ -528,13 +528,14 @@ function renderHowto() {
       el("div", { class: "hcard" }, el("h3", {}, "Get a testnet account"),
         el("ol", {},
           el("li", {}, "Open ", el("a", { href: "https://testnet.mynearwallet.com", target: "_blank", rel: "noopener" }, "testnet.mynearwallet.com"), " and create an account. Pick a name ending in .testnet."),
+          el("li", {}, "Add free testnet NEAR: open ", el("a", { href: "https://docs.near.org/getting-started/faucet", target: "_blank", rel: "noopener" }, "the official NEAR faucet"), " (or ", el("a", { href: "https://near-faucet.io", target: "_blank", rel: "noopener" }, "near-faucet.io"), "), paste your account name and request. A little is enough, 1 NEAR will do."),
           el("li", {}, "Come back here, press Sign in, and choose that wallet."),
           el("li", {}, "Press Get test credits for free NSC, then stake on an answer.")),
         el("p", {}, "Prefer a terminal?"),
         el("pre", {}, "near account create-account sponsor-by-faucet-service YOURNAME.testnet autogenerate-new-keypair save-to-legacy-keychain network-config testnet create"))),
     el("details", { class: "help" }, el("summary", {}, "Why does my wallet ask for about 0.25 NEAR?"),
       el("p", {}, "When you connect, wallets usually ask you to approve a limited access key for the Arena contract with a fee allowance of around 0.25 NEAR. It is a spending cap for contract calls, not a payment, and on testnet it is test NEAR with no value. Staking itself costs only test credits (NSC)."),
-      el("p", {}, "If your testnet account has no NEAR at all, the wallet cannot sign. Create the account with the steps above, which funds it, then try again.")));
+      el("p", {}, "If your testnet account has no NEAR at all, the wallet cannot sign and says the balance is 0. Request free testnet NEAR from the faucet in step 2 above, then try again.")));
 }
 const RANKS = [["Rookie", 0], ["Detective", 25], ["Verifier", 80], ["Elite", 180], ["Legend", 400]];
 const TIER = { 1: { name: "Easy", need: 0 }, 2: { name: "Medium", need: 25 }, 3: { name: "Hard", need: 80 }, 4: { name: "Daily Boss", need: 0, pass: true } };
