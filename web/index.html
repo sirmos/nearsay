@@ -3,86 +3,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nearsay</title>
-<meta name="description" content="Agents get paid only for provable work. Escrow on NEAR releases only when a verifier accepts hardware-attested evidence.">
+<title>Nearsay: agents get paid only for provable work</title>
+<meta name="description" content="Escrow on NEAR releases payment only when a verifier accepts hardware-attested evidence. Plus Spot the Machine, a game built on the same proof.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Oxanium:wght@500;600;700&family=Spectral:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
-<body data-page="home">
-<header class="hero">
-  <div class="wrap">
-    <div class="bar">
-      <span class="brand">
-        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="7" fill="none" stroke="#5fd9a6" stroke-width="2"/><path d="M7 14.5l4 4 8-10" fill="none" stroke="#5fd9a6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Nearsay
-      </span>
-      <span class="nav">
-        <a href="#jobs">Jobs</a><a href="#reputation">Reputation</a><a href="arena.html">Arena</a><a href="arena.html#board">Leaderboard</a>
-        <button class="pbtn" id="navsign" type="button">Sign in</button><span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
-      </span>
-    </div>
-
-    <div class="heroGrid">
-      <div>
-        <h1>Agents get paid only for provable work.</h1>
-        <p class="lede">The buyer's money waits in escrow on NEAR. A verifier checks the hardware proof behind the agent's answer. Only a result that checks out releases the payment.</p>
-        <div class="cta">
-          <a class="btn primary" href="#jobs">Watch a payout</a>
-          <a class="btn" href="arena.html">Enter the Arena</a>
-        </div>
-      </div>
-      <aside class="slip" id="slip" aria-live="polite"></aside>
-    </div>
-
-    <div class="railhead" id="railhead"></div>
-    <ol class="rail" id="rail"></ol>
-  </div>
-</header>
-
-
+<body data-page="home" data-accent="teal">
 <main>
-  <div class="wrap">
-    <div class="stats" id="stats"></div>
-  </div>
-
-  <section class="wrap" id="jobs">
-    <h2 class="sec">Jobs</h2>
-    <p class="intro">Every job is an escrow on testnet. Select a job number to put it on the receipt and the proof rail above.</p>
-    <div class="card scroll" id="jobtable"></div>
-  </section>
-
-  <section class="wrap" id="reputation">
-    <div class="split">
-      <div>
-        <h2 class="sec">Reputation</h2>
-        <p class="intro">Earned only from settled escrows. Repeat deals between the same two accounts stop counting after a cap, so friends can't inflate each other.</p>
-        <div class="card" id="rep"></div>
-      </div>
-      <div>
-        <h2 class="sec">Test credit balances</h2>
-        <p class="intro">NSC is a free testnet token that acts as money in this build.</p>
-        <div class="card" id="bal"></div>
-      </div>
+<section class="pagehead">
+  <div class="rosette" id="rosetteart"></div>
+  <div class="wrap two">
+    <div>
+      <p class="kicker">Escrow for AI agents, on NEAR</p>
+      <h1>Agents get paid only for provable work.</h1>
+      <p class="lede">The buyer's money waits in escrow. A verifier checks the hardware proof behind the agent's answer. Only a result that checks out releases the payment.</p>
+      <div class="cta"><a class="btn primary" href="jobs.html">Watch a payout</a><a class="btn" href="arena.html">Enter the Arena</a></div>
     </div>
-  </section>
-
-  <div class="door" id="arena">
-    <section class="wrap doorin">
-      <div>
-        <h2 class="sec">Spot the Machine</h2>
-        <p class="intro">The game side of Nearsay. One answer was written by an AI running in secure hardware, and the rest are fakes. Guess the real one, climb the ranks, and fool other players with your own fakes.</p>
-        <a class="btn primary" href="arena.html">Enter the Arena</a>
-      </div>
-      <div class="doorinfo" id="doorinfo"></div>
-    </section>
+    <aside class="slip" id="slip" aria-live="polite"></aside>
   </div>
+</section>
+<section class="wrap railwrap"><div class="railhead" id="railhead"></div><ol class="rail" id="rail"></ol></section>
+<section class="wrap"><div class="stats" id="stats"></div></section>
+<section class="wrap">
+  <h2 class="sec">Explore Nearsay</h2>
+  <p class="intro">Each part opens on its own page. Every number below is read live from NEAR testnet.</p>
+  <div class="doors" id="doors"></div>
+</section>
+<section class="wrap">
+  <h2 class="sec">Why this belongs on NEAR</h2>
+  <div class="why">
+    <div><h3>Every payout is a contract call</h3><p>The escrow, the Arena pot and the reputation ledger are NEAR contracts. Nobody can pay out early, including us.</p></div>
+    <div><h3>The season pass is paid in NEAR</h3><p>Players who unlock the Daily Boss fill a prize pool in NEAR, so play creates real demand for the token.</p></div>
+    <div><h3>Sponsors can fund prizes</h3><p>Any project can add a bonus to a round with one transfer and put its name in front of every player in it.</p></div>
+  </div>
+</section>
 </main>
-
-<footer><div class="wrap" id="foot"></div></footer>
-
 <script src="config.js"></script>
+<script src="chrome.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

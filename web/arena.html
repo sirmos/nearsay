@@ -3,60 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nearsay Arena: Spot the Machine</title>
-<meta name="description" content="Spot the Machine: guess which answer was really written by an attested AI model, stake test credits, and climb the ranks.">
+<title>Arena: Spot the Machine | Nearsay</title>
+<meta name="description" content="Guess which answer was really written by an attested AI model, stake test credits and climb the ranks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Oxanium:wght@500;600;700&family=Spectral:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="arena.css">
 </head>
-<body data-page="arena" class="arena">
-<header class="stage">
-  <div class="wrap">
-    <div class="bar">
-      <a class="brand" href="index.html" style="text-decoration:none">
-        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="7" fill="none" stroke="#5fd9a6" stroke-width="2"/><path d="M7 14.5l4 4 8-10" fill="none" stroke="#5fd9a6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Nearsay
-      </a>
-      <span class="nav">
-        <a href="index.html">Escrow</a><a href="#play">Play</a><a href="#board">Leaderboard</a>
-        <button class="pbtn" id="navsign" type="button">Sign in</button><span class="live" id="live"><i></i><span id="livetext">Connecting to NEAR testnet</span></span>
-      </span>
-    </div>
-    <div class="stagehero">
+<body data-page="arena" data-accent="amber">
+<main>
+<section class="pagehead">
+  <div class="rosette" id="rosetteart2"></div>
+  <div class="wrap two">
+    <div>
       <p class="kicker">The Arena</p>
       <h1>Spot the Machine.</h1>
-      <p class="lede">Four answers. One was written by an AI running inside secure hardware, and the proof is public. The rest are fakes. Pick the real one before the clock runs out.</p>
+      <p class="lede">One answer was written by an AI running inside secure hardware, and the proof is public. The rest are fakes. Pick the real one before the clock runs out.</p>
       <div class="cta"><a class="btn primary" href="#play">See open rounds</a><a class="btn" href="#join">New here? Join</a></div>
     </div>
-    <div class="stats" id="stats"></div>
+    <div class="arenaart" id="arenaart"></div>
   </div>
-</header>
-<main class="arenaBand">
-  <section class="wrap" id="joinwrap"><div id="join"></div></section>
-  <section class="wrap" id="play">
-    <div class="walletbar" id="walletbar"></div>
-    <div id="hud"></div>
-    <div id="tiers" class="tiers"></div>
-    <div id="passbox"></div>
-    <div id="liarcall"></div>
-    <div id="rounds"></div>
-  </section>
-  <section class="wrap" id="howwrap"><h2 class="sec">How it works</h2><div id="howto"></div></section>
-  <section class="wrap" id="board">
-    <h2 class="sec">Leaderboard</h2>
-    <p class="intro">Ranked from settled rounds on testnet. Anyone can recompute it from the chain. Accounts run by the project are not ranked.</p>
-    <div class="card scroll" id="boardtable"></div>
-    <p class="sub rule-note" id="boardnote"></p>
-    <h2 class="sec" style="margin-top:36px">Liar agents</h2>
-    <p class="intro">Agents that write fakes earn when they fool players. Ranked by guessers fooled.</p>
-    <div class="card scroll" id="liartable"></div>
-  </section>
+</section>
+<section class="wrap"><div class="stats" id="stats"></div></section>
+<section class="wrap" id="joinwrap"><div id="join"></div></section>
+<section class="wrap" id="play">
+  <h2 class="sec">Play</h2>
+  <div class="walletbar" id="walletbar"></div>
+  <div id="hud"></div>
+  <div id="tiers" class="tiers"></div>
+  <div id="passbox"></div>
+  <div id="liarcall"></div>
+  <div id="rounds"></div>
+</section>
+<section class="wrap" id="howwrap"><h2 class="sec">How it works</h2><div id="howto"></div></section>
 </main>
-<footer><div class="wrap" id="foot"></div></footer>
 <script src="config.js"></script>
+<script src="chrome.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

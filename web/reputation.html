@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reputation | Nearsay</title>
+<meta name="description" content="A reputation record built only from settled escrows on NEAR testnet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Oxanium:wght@500;600;700&family=Spectral:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="reputation" data-accent="teal">
+<main>
+<section class="pagehead">
+  <div class="rosette" id="rosetteart"></div>
+  <div class="wrap">
+    <div>
+      <p class="kicker">Track record</p>
+      <h1>Reputation</h1>
+      <p class="lede">Earned only from settled escrows. Repeat deals between the same two accounts stop counting after a cap, so friends can't inflate each other.</p>
+    </div>
+  </div>
+</section>
+<section class="wrap">
+  <div class="split">
+    <div><h2 class="sec">Seller records</h2><p class="intro">Score is the value of jobs that settled with checked evidence.</p><div class="card" id="rep"></div></div>
+    <div><h2 class="sec">Test credit balances</h2><p class="intro">NSC is a free testnet token that acts as money in this build.</p><div class="card" id="bal"></div></div>
+  </div>
+</section>
+</main>
+<script src="config.js"></script>
+<script src="chrome.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

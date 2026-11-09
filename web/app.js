@@ -102,23 +102,30 @@ function payoutOf(j) { const a = BigInt(j.amount); const fee = (a * CFG.feeBps) 
 const jobTag = { Open: ["idle", "Open"], Funded: ["wait", "Funded"], Submitted: ["wait", "Submitted"], Settled: ["ok", "Settled"], Refunded: ["bad", "Refunded"] };
 
 function renderSlip() {
+  const box = $("slip"); if (!box) return;
   const j = currentJob();
-  if (!j) return put("slip", el("h2", {}, "Settlement receipt"), el("p", { class: "empty" }, "No jobs yet. The first escrow will appear here."));
+  const art = el("div", { class: "slipart" });
+  art.append(svgFrom(waveBand(460, 74, "#0a6b52")));
+  art.append(el("div", { class: "title" }, el("h2", {}, "Settlement receipt"), el("span", { class: "serial" }, j ? "No. " + String(j.id).padStart(6, "0") : "No. 000000")));
+  box.classList.toggle("paid", !!j && j.status === "Settled");
+  if (!j) return put("slip", art, el("div", { class: "slipbody" }, el("p", { class: "empty" }, "No jobs yet. The first escrow will appear here.")));
   const { fee, payout } = payoutOf(j);
   const [kind, label] = jobTag[j.status] || ["idle", j.status];
   const k = evKind(j.evidence_ref);
   const settled = j.status === "Settled";
-  put("slip",
-    el("h2", {}, "Settlement receipt", el("span", { class: "tag " + kind }, label)),
-    el("p", { class: "meta" }, "Job #" + j.id + " on NEAR testnet"),
-    el("dl", {},
-      el("div", { class: "line" }, el("dt", {}, "Buyer"), el("dd", {}, link(j.buyer))),
-      el("div", { class: "line" }, el("dt", {}, "Seller"), el("dd", {}, link(j.seller))),
-      el("div", { class: "line" }, el("dt", {}, "Held in escrow"), el("dd", {}, credits(j.amount))),
-      el("div", { class: "line" }, el("dt", {}, "Fee (1%)"), el("dd", {}, settled ? credits(String(fee)) : "on settlement")),
-      el("div", { class: "line" }, el("dt", {}, "Evidence"), el("dd", {}, k === "none" ? "waiting" : evTag(k), k === "attested" ? [" ", evLink(j)] : "")),
-      el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout))))),
-    el("p", { class: "foot" }, j.result_hash ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash, 10))] : "No result submitted yet"));
+  const kids = [art,
+    el("div", { class: "slipbody" },
+      el("p", { class: "meta" }, "Job #" + j.id + " on NEAR testnet ", el("span", { class: "tag " + kind }, label)),
+      el("dl", {},
+        el("div", { class: "line" }, el("dt", {}, "Buyer"), el("dd", {}, link(j.buyer))),
+        el("div", { class: "line" }, el("dt", {}, "Seller"), el("dd", {}, link(j.seller))),
+        el("div", { class: "line" }, el("dt", {}, "Held in escrow"), el("dd", {}, credits(j.amount))),
+        el("div", { class: "line" }, el("dt", {}, "Fee (1%)"), el("dd", {}, settled ? credits(String(fee)) : "on settlement")),
+        el("div", { class: "line" }, el("dt", {}, "Evidence"), el("dd", {}, k === "none" ? "waiting" : evTag(k), k === "attested" ? [" ", evLink(j)] : "")),
+        el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout))))),
+      el("p", { class: "foot" }, j.result_hash ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash, 10))] : "No result submitted yet"))];
+  if (settled && k === "attested") { const seal = el("div", { class: "seal" }); seal.append(svgFrom(sealSVG("VERIFIED", "\u2713", "ATTESTED", "#0a6b52"))); kids.push(seal); }
+  put("slip", ...kids);
 }
 function railStations(j) {
   const { payout } = payoutOf(j);
@@ -146,12 +153,6 @@ function renderRail() {
 }
 
 // ---------- honesty strip and stats ----------
-function renderDoor() {
-  const open = rounds.filter(openNow).length;
-  put("doorinfo",
-    el("div", { class: "stat" }, el("b", {}, String(open)), el("span", {}, open === 1 ? "round open now" : "rounds open now")),
-    el("div", { class: "stat" }, el("b", {}, String(rounds.length)), el("span", {}, "rounds played in all")));
-}
 function renderStats() {
   const settled = jobs.filter((j) => j.status === "Settled");
   const paid = settled.reduce((s, j) => s + payoutOf(j).payout, 0n);
@@ -172,8 +173,12 @@ function renderStats() {
 
 // ---------- ledger, reputation, balances ----------
 function renderJobs() {
+  if (!$("jobtable")) return;
+  wireSearch("jobsearch", "jobs");
   if (!jobs.length) return put("jobtable", el("p", { class: "empty" }, "No jobs yet. A buyer funds the first escrow with node services/buyer.mjs, and it appears here within seconds."));
-  const rows = jobs.slice().reverse().map((j) => {
+  const list = jobs.slice().reverse().filter((j) => matches("jobs", "#" + j.id, j.buyer, j.seller, j.status));
+  const pg = pageOf("jobs", list, 10);
+  const rows = pg.slice.map((j) => {
     const [kind, label] = jobTag[j.status] || ["idle", j.status];
     return el("tr", { class: j.id === currentJob().id ? "sel" : "" },
       el("td", { class: "jobno" }, el("button", { type: "button", "aria-label": "Show job " + j.id,
@@ -183,7 +188,7 @@ function renderJobs() {
       el("td", {}, el("span", { class: "tag " + kind }, label)),
       el("td", {}, evKind(j.evidence_ref) === "none" ? el("span", { class: "sub" }, "none") : evTag(evKind(j.evidence_ref))));
   });
-  put("jobtable", el("table", {}, el("thead", {}, el("tr", {}, ["Job", "Parties", "Amount", "Status", "Evidence"].map((h) => el("th", {}, h)))), el("tbody", {}, rows)));
+  put("jobtable", el("table", {}, el("thead", {}, el("tr", {}, ["Job", "Parties", "Amount", "Status", "Evidence"].map((h) => el("th", {}, h)))), el("tbody", {}, rows)), pg.pager);
 }
 function renderRep() {
   const rows = reps.filter((r) => r.rep.settled_jobs > 0);
@@ -252,20 +257,24 @@ function buildBoard(includeOurs = false) {
   return [...by.values()].sort((a, b) => b.points - a.points || b.correct / b.played - a.correct / a.played || a.player.localeCompare(b.player));
 }
 function renderBoard() {
-  const rows = buildBoard();
-  if (!$("boardnote")) return;
-  $("boardnote").textContent = "Points: " + POINTS.played + " for playing a settled round, " + POINTS.correct + " for a correct guess, and +" + POINTS.streakStep + " for each extra correct guess in a row (up to +" + POINTS.streakCap + ").";
-  if (!rows.length) return put("boardtable", el("p", { class: "empty" }, "No settled rounds with players yet. Play a round and your name goes here."));
+  if (!$("boardtable")) return;
+  wireSearch("boardsearch", "board");
+  const all = buildBoard();
+  if ($("boardnote")) $("boardnote").textContent = "Points: " + POINTS.played + " for playing a settled round, " + POINTS.correct + " for a correct guess, and +" + POINTS.streakStep + " for each extra correct guess in a row (up to +" + POINTS.streakCap + ").";
+  if (!all.length) return put("boardtable", el("p", { class: "empty" }, "No settled rounds with players yet. Play a round and your name goes here."));
+  const ranked = all.map((e, i) => Object.assign({ rank: i + 1 }, e)).filter((e) => matches("board", e.player));
+  const pg = pageOf("board", ranked, 15);
   put("boardtable", el("table", {},
-    el("thead", {}, el("tr", {}, [["#", "n"], ["Player", ""], ["Rounds", "n"], ["Correct", "n"], ["Accuracy", "n"], ["Streak", "n"], ["Points", "n"]].map(([h, c]) => el("th", { class: c }, h)))),
-    el("tbody", {}, rows.map((e, i) => el("tr", { class: e.player === me ? "me" : "" },
-      el("td", { class: "n" }, String(i + 1)), el("td", {}, link(e.player, e.player), e.player === me ? " (you)" : ""),
+    el("thead", {}, el("tr", {}, [["#", "n"], ["Player", ""], ["Rank", ""], ["Rounds", "n"], ["Correct", "n"], ["Accuracy", "n"], ["Streak", "n"], ["Points", "n"]].map(([h, c]) => el("th", { class: c }, h)))),
+    el("tbody", {}, pg.slice.map((e) => el("tr", { class: e.player === me ? "me" : "" },
+      el("td", { class: "n" }, String(e.rank)), el("td", {}, link(e.player, e.player), e.player === me ? " (you)" : ""), el("td", {}, el("span", { class: "tag idle" }, rankOf(e.points).name)),
       el("td", { class: "n" }, String(e.played)), el("td", { class: "n" }, String(e.correct)),
       el("td", { class: "n" }, Math.round((e.correct / e.played) * 100) + "%"), el("td", { class: "n" }, String(e.streak)),
-      el("td", { class: "n" }, String(e.points)))))));
+      el("td", { class: "n" }, String(e.points)))))), pg.pager);
 }
 
 function renderLiars() {
+  if (!$("liartable")) return;
   const by = new Map();
   for (const r of rounds.filter((x) => x.status === "Settled" && Array.isArray(x.authors) && x.authors.length)) {
     const seen = new Set();
@@ -278,9 +287,10 @@ function renderLiars() {
   }
   const rows = [...by.values()].sort((a, b) => b.fooled - a.fooled);
   if (!rows.length) return put("liartable", el("p", { class: "empty" }, "No liar has fooled anyone yet."));
+  const pg = pageOf("liars", rows, 15);
   put("liartable", el("table", {},
     el("thead", {}, el("tr", {}, [["#", "n"], ["Liar agent", ""], ["Rounds", "n"], ["Fooled", "n"]].map(([h, c]) => el("th", { class: c }, h)))),
-    el("tbody", {}, rows.map((e, i) => el("tr", {}, el("td", { class: "n" }, String(i + 1)), el("td", {}, link(e.who, e.who)), el("td", { class: "n" }, String(e.rounds)), el("td", { class: "n" }, String(e.fooled)))))));
+    el("tbody", {}, pg.slice.map((e, i) => el("tr", {}, el("td", { class: "n" }, String(pg.start + i + 1)), el("td", {}, link(e.who, e.who)), el("td", { class: "n" }, String(e.rounds)), el("td", { class: "n" }, String(e.fooled)))))), pg.pager);
 }
 function renderHud() {
   const box = $("hud"); if (!box) return;
@@ -302,7 +312,7 @@ function renderTiers() {
   for (const t of [1, 2, 3, 4]) {
     const open = tierOpen(t);
     cards.push(el("button", { type: "button", class: "tier" + (selTier === t ? " on" : "") + (open ? "" : " locked"), onclick: () => { selTier = t; renderTiers(); renderRounds(); } },
-      el("b", {}, TIER[t].name), el("span", {}, (t + 1) + " answers" + (open ? "" : ", locked") + ", " + count(t) + " open")));
+      open ? "" : icon("lock"), el("b", {}, TIER[t].name), el("span", {}, (t + 1) + " answers" + (open ? "" : ", locked") + ", " + count(t) + " open")));
   }
   box.replaceChildren(...cards);
 }
@@ -377,7 +387,7 @@ function renderRounds() {
   }));
 }
 
-function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoor(); }
+function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
 
 
 // ---------- join: get an account, get test NEAR, sign in ----------
@@ -509,7 +519,7 @@ function renderWallet() {
   const bar = $("walletbar");
   if (!bar) return;
   const ns = $("navsign");
-  if (ns) ns.textContent = me ? me : "Sign in"; if (ns) { ns.onclick = me ? signOut : (PAGE === "arena" ? connect : () => { location.href = "arena.html#join"; }); ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account"; }
+  if (ns) ns.textContent = me ? me : "Sign in"; if (ns) { ns.onclick = me ? signOut : (PAGE === "arena" || PAGE === "passport" ? connect : () => { location.href = "arena.html#join"; }); ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account"; }
   const kids = [];
   const open = rounds.filter(openNow);
   if (walletState === "loading") kids.push(el("span", { class: "grow" }, "Loading wallet options…"));
@@ -578,6 +588,7 @@ if (/[?&](transactionHashes|errorCode)=/.test(location.search)) {
 try { if (Object.keys(localStorage).some((k) => k.startsWith("near-wallet-selector"))) loadWallet(); } catch (e) { /* storage blocked: the Connect button still works */ }
 
 // ---------- refresh loop ----------
+buildChrome(); decorate();
 const live = document.getElementById("live"), livetext = document.getElementById("livetext");
 async function refresh() {
   try {
@@ -602,9 +613,14 @@ async function refresh() {
     }
   }
 }
-$("foot").append(link(CFG.escrow, "Escrow contract"), link(CFG.arena, "Arena contract"), link(CFG.token, "Test credits (NSC) token"),
+($("foot") || document.body).append(link(CFG.escrow, "Escrow contract"), link(CFG.arena, "Arena contract"), link(CFG.token, "Test credits (NSC) token"),
   el("a", { href: "https://github.com/sirmos/nearsay", target: "_blank", rel: "noopener" }, "Source code"));
 renderHowto();
 renderAll();
 refresh();
 setInterval(refresh, CFG.refreshMs);
+pollBlock(); setInterval(pollBlock, 5000); setInterval(tickTicker, 1000);
+document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab; });
+}));
