@@ -44,7 +44,7 @@ async function rpcView(account, method, args = {}, tries = 6) {
   }
   throw lastErr;
 }
-const RPCS = [CFG.rpc, "https://test.rpc.fastnear.com", "https://rpc.testnet.fastnear.com"];
+const RPCS = ["https://test.rpc.fastnear.com", CFG.rpc, "https://rpc.testnet.fastnear.com"];
 let rpcIdx = 0;
 const isFinal = (s) => s === "Settled" || s === "Refunded" || s === "Voided";
 // Read ids 1..n. Cached final items are not refetched; only open items and the next id are.
@@ -348,19 +348,44 @@ function renderCalls() {
   if (box.contains(document.activeElement) && document.activeElement.tagName === "TEXTAREA") return; // do not wipe what someone is typing
   box.replaceChildren(...open.map((c) => {
     const mine = me && c.decoys.some((d) => d.author === me);
-    const ta = el("textarea", { maxlength: "280", placeholder: "Write a fake answer that sounds like the machine wrote it", "aria-label": "Your decoy" });
+    const ta = el("textarea", { maxlength: "280", placeholder: "Type a convincing answer to the question above", "aria-label": "Your decoy" });
     ta.value = drafts[c.id] || "";
     ta.addEventListener("input", () => { drafts[c.id] = ta.value; });
     return el("div", { class: "callbox" },
-      el("h3", {}, "Be the Liar: write a decoy"),
-      el("p", {}, showQ(c.prompt)),
-      el("p", {}, "The best decoys go into the next round next to the machine's real answer. If yours fools players, you earn the liar share. " + c.decoys.length + (c.decoys.length === 1 ? " decoy" : " decoys") + " so far."),
+      el("h3", {}, "Be the Liar"),
+      el("p", {}, el("b", {}, "Today's question: "), showQ(c.prompt)),
+      el("p", {}, "Type your own answer to it, written so it could pass for the AI's. Up to 280 characters. The best fakes go into the next round beside the machine's real answer, and when a player picks yours, you earn a share of that round's pot. " + c.decoys.length + (c.decoys.length === 1 ? " fake" : " fakes") + " submitted so far."),
       mine ? el("span", { class: "tag ok" }, "Your decoy is in") : [ta,
         el("div", { class: "row" },
           me ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: () => { const t = (drafts[c.id] || "").trim(); if (!t) { flashMsg = { kind: "err", text: "Write something first." }; return renderWallet(); } send(CFG.arena, [["submit_decoy", { call_id: c.id, text: t }, STAKE_GAS]]); } }, "Submit my decoy")
              : el("button", { class: "pbtn", type: "button", onclick: connect }, "Sign in to submit"),
           el("span", { class: "count", "data-closes": String(Number(c.closes_ms)) }, ""))]);
   }));
+}
+
+// ---------- practice: replay a past round, no wallet and nothing at stake ----------
+let practice = { id: null, pick: null };
+function renderPractice() {
+  const box = $("practice"); if (!box) return;
+  const pool = rounds.filter((r) => r.status === "Settled" && r.real_index !== null && r.real_index !== undefined);
+  if (!pool.length) return box.replaceChildren(el("p", { class: "empty" }, "Past rounds appear here after the first round has been revealed. Check back soon."));
+  let r = pool.find((x) => x.id === practice.id);
+  if (!r) { r = pool[Math.floor(Math.random() * pool.length)]; practice = { id: r.id, pick: null }; }
+  const done = practice.pick !== null, right = done && practice.pick === r.real_index;
+  const next = () => { const others = pool.filter((x) => x.id !== r.id); const n = (others.length ? others : pool)[Math.floor(Math.random() * (others.length || pool.length))]; practice = { id: n.id, pick: null }; renderPractice(); };
+  box.replaceChildren(el("div", { class: "round" },
+    el("div", {}, el("span", { class: "tag idle" }, "Practice"), " ", el("span", { class: "tag idle" }, TIER[tierOf(r)].name), " ", el("span", { class: "sub" }, "From round " + r.id),
+      el("p", { class: "q" }, showQ(r.question)),
+      done ? el("p", { class: "playnote" }, el("span", { class: right ? "tag ok" : "tag bad" }, right ? "Spotted" : "Fooled"), " ", right ? "That one was written by the attested model." : "The real answer was " + String.fromCharCode(65 + r.real_index) + ".", " ",
+        el("a", { href: CFG.evidenceBase + "round-" + r.id + ".json", target: "_blank", rel: "noopener" }, "See the proof")) : el("p", { class: "playnote" }, "Pick the answer you think the machine wrote. Nothing is staked here."),
+      done ? el("button", { class: "pbtn go", type: "button", onclick: next }, "Try another round") : ""),
+    el("ul", { class: "answers" }, r.answers.map((a, i) => {
+      const real = done && r.real_index === i, picks = r.guesses.filter((g) => g.choice === i).length;
+      return el("li", { class: real ? "real" : "" }, el("span", { class: "letter" }, String.fromCharCode(65 + i)), el("span", {}, a),
+        real ? el("span", { class: "tag ok" }, "Real") : "", done && practice.pick === i ? el("span", { class: "tag idle" }, "Your pick") : "",
+        done && picks ? el("span", { class: "picks" }, picks + (picks === 1 ? " player" : " players")) : "",
+        done ? "" : el("button", { class: "pbtn", type: "button", onclick: () => { practice.pick = i; renderPractice(); } }, "Pick"));
+    }))));
 }
 
 // ---------- arena ----------
@@ -387,7 +412,7 @@ function renderRounds() {
   }));
 }
 
-function renderAll() { renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
+function renderAll() { renderPractice(); renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
 
 
 // ---------- join: get an account, get test NEAR, sign in ----------
@@ -472,7 +497,7 @@ async function loadWallet() {
       const css = document.createElement("link");
       css.rel = "stylesheet"; css.href = "https://cdn.jsdelivr.net/npm/@near-wallet-selector/modal-ui@" + v + "/styles.css";
       document.head.append(css);
-      selector = await core.setupWalletSelector({ network: "testnet", modules: mods });
+      selector = await core.setupWalletSelector({ network: { networkId: "testnet", nodeUrl: "https://test.rpc.fastnear.com", helperUrl: "https://helper.testnet.near.org", explorerUrl: "https://testnet.nearblocks.io", indexerUrl: "https://testnet-api.kitwallet.app" }, modules: mods });
       modal = ui.setupModal(selector, { contractId: CFG.arena });
       const sync = (state) => { const a = (state.accounts || []).find((x) => x.active) || (state.accounts || [])[0]; me = a ? a.accountId : null; refreshMine(); };
       sync(selector.store.getState());
@@ -485,24 +510,30 @@ async function loadWallet() {
 }
 async function connect() { await loadWallet(); if (modal) modal.show(); }
 async function signOut() { try { const w = await selector.wallet(); await w.signOut(); } catch (e) { console.warn(e); } me = null; myBalance = null; renderAll(); }
-async function send(receiver, actions) {
+const friendly = (e) => {
+  const m = String(e && e.message ? e.message : e);
+  if (/Exceeded \d+ attempts|fetch|network|timeout|timed out/i.test(m)) return "The NEAR network was slow to answer, so nothing was sent. Try again in a moment.";
+  if (/clos|cancel|reject|denied|declin|abort/i.test(m)) return "The wallet window was closed before you approved, so nothing was sent.";
+  return "The wallet did not send it: " + m;
+};
+async function send(receiver, actions, okText) {
   if (busy) return;
-  busy = true; flashMsg = null; renderWallet();
+  busy = true; flashMsg = { kind: "ok", text: "Opening your wallet. Approve the transaction in the pop-up window." }; renderWallet(); renderRounds();
   try {
     const w = await selector.wallet();
     await w.signAndSendTransaction({ receiverId: receiver, actions: actions.map(([methodName, args, gas, deposit]) => ({ type: "FunctionCall", params: { methodName, args, gas: String(gas), deposit: deposit || "0" } })) });
-    flashMsg = { kind: "ok", text: "Transaction sent. Updating in a few seconds." };
+    flashMsg = { kind: "ok", text: okText || "Sent. Your balance and the rounds update in a few seconds." };
     setTimeout(refresh, 3500); setTimeout(refresh, 9000);
-  } catch (e) { flashMsg = { kind: "err", text: "The wallet did not send it: " + (e && e.message ? e.message : e) }; }
+  } catch (e) { flashMsg = { kind: "err", text: friendly(e) }; }
   busy = false; renderWallet(); renderRounds();
 }
-const getCredits = () => send(CFG.token, [["register", { account_id: me }, 30n * 10n ** 12n], ["faucet", { amount: "20000000" }, 30n * 10n ** 12n]]);
+const getCredits = () => send(CFG.token, [["register", { account_id: me }, 30n * 10n ** 12n], ["faucet", { amount: "20000000" }, 30n * 10n ** 12n]], "You now have 20 free test credits (NSC).");
 const stakeOn = (r, i) => {
   if (!tierOpen(tierOf(r))) { flashMsg = { kind: "err", text: "This tier is locked. " + lockNote(tierOf(r)) + "." }; return renderWallet(); }
   if (BigInt(myBalance ?? "0") < BigInt(r.stake)) { flashMsg = { kind: "err", text: "Not enough test credits. Use Get test credits first." }; return renderWallet(); }
-  return send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.arena, amount: String(r.stake), msg: r.id + ":" + i }, STAKE_GAS, "1"]]);
+  return send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.arena, amount: String(r.stake), msg: r.id + ":" + i }, STAKE_GAS, "1"]], "Pick locked in: " + credits(r.stake) + " is staked on answer " + String.fromCharCode(65 + i) + ". The result appears here after the round closes.");
 };
-const claim = () => send(CFG.arena, [["claim", { token: CFG.token }, STAKE_GAS]]);
+const claim = () => send(CFG.arena, [["claim", { token: CFG.token }, STAKE_GAS]], "Claimed. The winnings are in your balance.");
 
 async function refreshMine() {
   if (!me) { myBalance = null; myClaim = {}; return renderWallet(); }
@@ -547,19 +578,24 @@ function playBtn(r, i) {
   if (!me) return el("button", { class: "pbtn", type: "button", onclick: connect }, "Play");
   if (mine) return "";
   if (!tierOpen(tierOf(r))) return el("span", { class: "tag idle", title: lockNote(tierOf(r)) }, "Locked");
-  return el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: () => stakeOn(r, i) }, "Stake " + credits(r.stake));
+  return el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: () => stakeOn(r, i) }, "Pick this answer");
 }
 function playNote(r) {
   const mine = myGuess(r);
   if (openNow(r) && !tierOpen(tierOf(r))) return el("p", { class: "playnote" }, el("span", { class: "count", "data-closes": String(num(r.closes_ms)) }, ""), el("span", {}, "Locked. " + lockNote(tierOf(r)) + " to play this round."));
-  if (openNow(r)) return el("p", { class: "playnote" }, el("span", { class: "count", "data-closes": String(num(r.closes_ms)) }, ""), mine ? el("span", {}, "You have guessed. Waiting for the reveal.") : el("span", {}, "Pick the answer you think the model really wrote."));
+  if (openNow(r)) return el("p", { class: "playnote" }, el("span", { class: "count", "data-closes": String(num(r.closes_ms)) }, ""), mine ? el("span", {}, "You have guessed. Waiting for the reveal.") : el("span", {}, "Pick the answer you think the model really wrote. A pick costs " + credits(r.stake) + ", and winners split the pot."));
   if (r.status === "Open") return el("p", { class: "playnote" }, "Guessing is closed. Waiting for the dealer to reveal the real answer.");
   if (r.status === "Settled" || r.status === "Voided") {
     if (me && mine) {
       const got = myClaim.amount && BigInt(myClaim.amount) > 0n;
-      return el("p", { class: "playnote" }, got ? el("span", {}, "You can claim " + credits(myClaim.amount) + ".") : el("span", {}, r.status === "Voided" ? "This round was voided and your stake is refundable." : "Round over."),
-        got || r.status === "Voided" ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: claim }, "Claim") : "", r.status === "Settled" ? shareLink(r, mine) : "");
+      const right = r.status === "Settled" && mine.choice === r.real_index;
+      const msg = r.status === "Voided" ? "This round was voided and your stake is refundable."
+        : right ? "You spotted the machine. Your share of the pot is waiting for you." + (got ? " You can claim " + credits(myClaim.amount) + "." : "")
+        : "The machine fooled you. The real answer was " + String.fromCharCode(65 + r.real_index) + ".";
+      return el("p", { class: "playnote" }, el("span", { class: right ? "tag ok" : "tag idle" }, right ? "Correct" : r.status === "Voided" ? "Voided" : "Missed"), " ", msg, " ",
+        (right && got) || r.status === "Voided" ? el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: claim }, "Claim") : "", r.status === "Settled" ? shareLink(r, mine) : "");
     }
+    if (r.status === "Settled") return el("p", { class: "playnote" }, "Round over. The real answer was " + String.fromCharCode(65 + r.real_index) + ".");
   }
   return "";
 }
