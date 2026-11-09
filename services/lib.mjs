@@ -13,8 +13,16 @@ export function need(name) {
 }
 
 // Read-only contract call through the public RPC. Returns parsed JSON (or null).
+const RPCS = [RPC, "https://test.rpc.fastnear.com", "https://rpc.testnet.fastnear.com"];
 export async function view(account, method, args = {}) {
-  const res = await fetch(RPC, {
+  let last;
+  for (const url of RPCS) {
+    try { return await viewAt(url, account, method, args); } catch (e) { last = e; if (!/fetch failed|ECONN|ETIMEDOUT|HTTP 5|HTTP 4/.test(String(e.message))) throw e; }
+  }
+  throw last;
+}
+async function viewAt(url, account, method, args) {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -23,6 +31,7 @@ export async function view(account, method, args = {}) {
         args_base64: Buffer.from(JSON.stringify(args)).toString("base64") },
     }),
   });
+  if (!res.ok) throw new Error("HTTP " + res.status);
   const j = await res.json();
   if (j.error) throw new Error(j.error.data || j.error.message);
   if (j.result?.error) throw new Error(j.result.error);

@@ -1,0 +1,49 @@
+name: Arena autopilot
+# Keeps the Arena running with no one at the keyboard: opens rounds from the attested
+# model, reveals them when guessing closes, and publishes the evidence.
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install near-cli-rs
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/near-cli-rs/releases/latest/download/near-cli-rs-installer.sh | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Load the dealer key
+        env:
+          KEY_PUBLIC: ${{ secrets.NS_VERIFIER_PUBLIC_KEY }}
+          KEY_PRIVATE: ${{ secrets.NS_VERIFIER_PRIVATE_KEY }}
+        run: |
+          set -a; . scripts/testnet.env; set +a
+          node -e '
+            const fs = require("fs"), os = require("os"), path = require("path");
+            const acct = process.env.NS_VERIFIER;
+            const body = JSON.stringify({ account_id: acct, public_key: process.env.KEY_PUBLIC, private_key: process.env.KEY_PRIVATE });
+            const base = path.join(os.homedir(), ".near-credentials", "testnet");
+            fs.mkdirSync(path.join(base, acct), { recursive: true });
+            fs.writeFileSync(path.join(base, acct + ".json"), body, { mode: 0o600 });
+            fs.writeFileSync(path.join(base, acct, process.env.KEY_PUBLIC.replace(":", "_") + ".json"), body, { mode: 0o600 });
+          '
+      - name: Run the autopilot
+        env:
+          NEARAI_API_KEY: ${{ secrets.NEARAI_API_KEY }}
+          AUTOPILOT_MINUTES: "335"
+        run: |
+          git config user.name "nearsay autopilot"
+          git config user.email "autopilot@users.noreply.github.com"
+          set -a; . scripts/testnet.env; set +a
+          node services/autopilot.mjs
