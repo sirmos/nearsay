@@ -153,7 +153,14 @@ function renderTicker() {
   if (sig === tickerSig) return;
   tickerSig = sig;
   const group = () => el("div", { class: "grp" }, items.map(([c, parts]) => el("span", {}, el("i", { class: "dot" + (c ? " " + c : "") }), parts.map((p) => (p instanceof Node ? p.cloneNode(true) : p)))));
-  box.replaceChildren(el("div", { class: "track" }, group(), group()));
+  const track = el("div", { class: "track" }, group(), group());
+  box.replaceChildren(track);
+  // Repeat the strip until it is wider than two screens, in an even number of copies, so it scrolls with no gap.
+  const gw = track.firstChild.getBoundingClientRect().width || 600;
+  let copies = Math.max(2, Math.ceil((window.innerWidth * 2) / gw));
+  if (copies % 2) copies++;
+  for (let i = 2; i < copies; i++) track.append(group());
+  track.style.animationDuration = Math.max(25, (gw * copies) / 2 / 45) + "s";
   tickTicker();
 }
 function tickTicker() {

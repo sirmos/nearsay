@@ -15,12 +15,16 @@ const deadline = Date.now() + Number(process.env.AUTOPILOT_MINUTES || 330) * 600
 const WINDOW = Number(process.env.ROUND_MINUTES || 45);
 const MAX = Number(process.env.AUTOPILOT_MAX_ROUNDS || 8);
 const LANES = ["everyday", "work", "care", "crypto", "creative"];
-let made = 0, callPlan = null, bossDone = false;
+let made = 0, callPlan = null, bossDone = false, fails = 0;
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const dealer = (...args) => {
-  try { return execFileSync(process.execPath, ["services/dealer.mjs", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: process.env }); }
-  catch (e) { log("dealer", args[0], "failed:", String(e.stderr || e.message).split("\n").filter(Boolean).slice(-3).join(" | ")); return ""; }
+  try { const out = execFileSync(process.execPath, ["services/dealer.mjs", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: process.env }); fails = 0; return out; }
+  catch (e) {
+    log("dealer", args[0], "failed:", String(e.stderr || e.message).split("\n").filter(Boolean).slice(-3).join(" | "));
+    if (++fails >= 6) { log("six dealer calls failed in a row, stopping so the problem is visible instead of looping"); process.exit(1); }
+    return "";
+  }
 };
 const timeLeft = (mins) => Date.now() + (mins + 8) * 60000 < deadline;
 
