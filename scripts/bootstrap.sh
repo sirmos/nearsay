@@ -71,6 +71,6 @@ for n in escrow arena seller buyer verifier liar; do
 done
 
 # Point the dashboard at the new contracts.
-sed -i "s/const NS_PREFIX = \"[^\"]*\"/const NS_PREFIX = \"$PREFIX\"/" web/index.html
+sed -i "s/const NS_PREFIX = \"[^\"]*\"/const NS_PREFIX = \"$PREFIX\"/" web/config.js
 echo
 echo "Done. Next: source scripts/testnet.env && NEARAI_API_KEY=... bash scripts/real-run.sh"
