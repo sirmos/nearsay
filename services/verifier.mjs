@@ -59,7 +59,12 @@ async function check(job) {
 
 async function handle(job) {
   console.log(`\n== job ${job.id} (${job.status})`);
-  const r = await check(job);
+  let r;
+  try { r = await check(job); }
+  catch (e) {
+    r = { steps: [{ name: "evidence_can_be_checked", ok: false, detail: String(e.message).slice(0, 120) }],
+      verdict: buildVerdict({ jobId: job.id, resultHash: job.result_hash, modelId: "none", sigResult: null, attestationHash: "" }) };
+  }
   if (r.missing) return console.log(`  no evidence/job-${job.id}.json here yet, waiting`);
   for (const s of r.steps) console.log(`  ${s.ok ? "PASS" : "FAIL"}  ${s.name}${s.detail ? "  [" + s.detail + "]" : ""}`);
   console.log(`  => verdict ok=${r.verdict.ok}, signature_kind=${r.verdict.signature_kind}`);

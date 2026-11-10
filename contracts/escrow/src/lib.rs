@@ -20,6 +20,17 @@ pub enum JobStatus {
     Refunded,
 }
 
+/// A share of the payout for someone besides the lead agent, in basis points of what is left after the fee.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug)]
+pub struct Split {
+    pub account: AccountId,
+    pub bps: u32,
+}
+
+/// A submitted job can only be refunded after the deadline plus this window, so a slow verifier cannot lose a valid job.
+const VERIFY_GRACE_MS: u64 = 6 * 60 * 60 * 1000;
+
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug)]
 pub struct Job {
@@ -33,6 +44,10 @@ pub struct Job {
     pub status: JobStatus,
     pub result_hash: Option<String>,
     pub evidence_ref: Option<String>,
+    /// The task text, when the buyer chose to publish it. Its sha256 must equal spec_hash.
+    pub spec_text: Option<String>,
+    /// Extra payees (other agents). The lead agent, the seller, keeps whatever they do not take.
+    pub splits: Vec<Split>,
 }
 
 /// Verdict produced by the off-chain verifier. Evidence fields are stored in the
@@ -113,11 +128,29 @@ impl Escrow {
         amount: U128,
         spec_hash: String,
         deadline_ms: u64,
+        spec_text: Option<String>,
+        splits: Option<Vec<Split>>,
     ) -> u64 {
         let buyer = env::predecessor_account_id();
         require!(amount.0 > 0, "amount must be positive");
         require!(seller != buyer, "seller cannot be the buyer");
         require!(deadline_ms > env::block_timestamp_ms(), "deadline in the past");
+        let splits = splits.unwrap_or_default();
+        require!(splits.len() <= 4, "at most 4 extra payees");
+        let mut total: u32 = 0;
+        for (i, sp) in splits.iter().enumerate() {
+            require!(sp.bps > 0, "each split must be positive");
+            require!(sp.account != seller && sp.account != buyer, "a split account must differ from the seller and the buyer");
+            for other in splits.iter().skip(i + 1) {
+                require!(other.account != sp.account, "duplicate payee");
+            }
+            total = total.saturating_add(sp.bps);
+        }
+        require!(total <= 9_000, "splits may take at most 90% so the lead agent keeps a share");
+        if let Some(text) = &spec_text {
+            require!(text.len() <= 1_000, "task text too long (max 1000 bytes)");
+            require!(Self::hex(&env::sha256(text.as_bytes())) == spec_hash, "spec_hash does not match the task text");
+        }
         let id = self.next_job_id;
         self.next_job_id += 1;
         let job = Job {
@@ -131,6 +164,8 @@ impl Escrow {
             status: JobStatus::Open,
             result_hash: None,
             evidence_ref: None,
+            spec_text,
+            splits,
         };
         self.jobs.insert(id, job);
         Self::log("job_created", id);
@@ -188,13 +223,27 @@ impl Escrow {
         if accepted {
             let fee = amount.checked_mul(self.fee_bps as u128).expect("overflow") / 10_000;
             let payout = amount - fee;
+            let mut shares: Vec<(AccountId, u128)> = Vec::new();
+            let mut given: u128 = 0;
+            for sp in job.splits.iter() {
+                let share = payout.checked_mul(sp.bps as u128).expect("overflow") / 10_000;
+                if share > 0 {
+                    given += share;
+                    shares.push((sp.account.clone(), share));
+                }
+            }
+            let lead = payout - given;
             job.status = JobStatus::Settled;
             self.jobs.insert(job_id, job.clone());
             let prev = self.fees.get(&job.token).copied().unwrap_or(0);
             self.fees.insert(job.token.clone(), prev + fee);
             self.record_reputation(&job.seller, &job.buyer, amount);
             Self::log("settled", job_id);
-            Self::pay_safe(&job.token, &job.seller, payout, "nearsay settle")
+            let mut paid = Self::pay_safe(&job.token, &job.seller, lead, "nearsay settle");
+            for (to, share) in shares {
+                paid = paid.and(Self::pay_safe(&job.token, &to, share, "nearsay split"));
+            }
+            paid
         } else {
             job.status = JobStatus::Refunded;
             self.jobs.insert(job_id, job.clone());
@@ -210,7 +259,8 @@ impl Escrow {
             job.status == JobStatus::Funded || job.status == JobStatus::Submitted,
             "nothing to refund"
         );
-        require!(env::block_timestamp_ms() > job.deadline_ms, "deadline not reached");
+        let wait = if job.status == JobStatus::Submitted { VERIFY_GRACE_MS } else { 0 };
+        require!(env::block_timestamp_ms() > job.deadline_ms + wait, "deadline not reached");
         job.status = JobStatus::Refunded;
         self.jobs.insert(job_id, job.clone());
         Self::log("refunded_deadline", job_id);
@@ -276,6 +326,16 @@ impl Escrow {
             .get(&job_id)
             .cloned()
             .unwrap_or_else(|| env::panic_str("no such job"))
+    }
+
+    fn hex(bytes: &[u8]) -> String {
+        const DIGITS: &[u8; 16] = b"0123456789abcdef";
+        let mut out = String::with_capacity(bytes.len() * 2);
+        for b in bytes {
+            out.push(DIGITS[(b >> 4) as usize] as char);
+            out.push(DIGITS[(b & 15) as usize] as char);
+        }
+        out
     }
 
     fn wkey(token: &AccountId, who: &AccountId) -> String {
@@ -367,6 +427,8 @@ mod tests {
             U128(amount),
             "spec".to_string(),
             T0 + 10_000,
+            None,
+            None,
         );
         ctx(accounts(4), T0);
         let _ = c.ft_on_transfer(accounts(1), U128(amount), id.to_string());
@@ -443,7 +505,7 @@ mod tests {
     fn refund_after_deadline_works() {
         let mut c = setup();
         let id = funded_and_submitted(&mut c, 1_000);
-        ctx(accounts(1), T0 + 10_001);
+        ctx(accounts(1), T0 + 10_000 + VERIFY_GRACE_MS + 1);
         let _ = c.refund(id);
         assert_eq!(c.get_job(id).unwrap().status, JobStatus::Refunded);
     }
@@ -492,5 +554,71 @@ mod tests {
         let r = c.get_reputation(accounts(2));
         assert_eq!(r.settled_jobs, 2);
         assert_eq!(r.score.0, 1_500);
+    }
+
+    #[test]
+    #[should_panic(expected = "deadline not reached")]
+    fn submitted_job_cannot_be_refunded_inside_the_verification_window() {
+        let mut c = setup();
+        let id = funded_and_submitted(&mut c, 1_000);
+        ctx(accounts(1), T0 + 10_001);
+        let _ = c.refund(id);
+    }
+
+    fn sha_hex(text: &str) -> String {
+        Escrow::hex(&env::sha256(text.as_bytes()))
+    }
+
+    #[test]
+    fn task_text_is_stored_when_its_hash_matches() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let text = "Summarise the news in one line.".to_string();
+        let id = c.create_job(accounts(2), accounts(4), U128(1_000), sha_hex(&text), T0 + 10_000, Some(text.clone()), None);
+        assert_eq!(c.get_job(id).unwrap().spec_text, Some(text));
+    }
+
+    #[test]
+    #[should_panic(expected = "spec_hash does not match")]
+    fn task_text_with_the_wrong_hash_is_rejected() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let _ = c.create_job(accounts(2), accounts(4), U128(1_000), "nope".to_string(), T0 + 10_000, Some("hello".to_string()), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "at most 90%")]
+    fn splits_cannot_take_everything() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let sp = vec![Split { account: accounts(0), bps: 9_500 }];
+        let _ = c.create_job(accounts(2), accounts(4), U128(1_000), "spec".to_string(), T0 + 10_000, None, Some(sp));
+    }
+
+    #[test]
+    #[should_panic(expected = "must differ")]
+    fn a_split_cannot_pay_the_seller_twice() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let sp = vec![Split { account: accounts(2), bps: 1_000 }];
+        let _ = c.create_job(accounts(2), accounts(4), U128(1_000), "spec".to_string(), T0 + 10_000, None, Some(sp));
+    }
+
+    #[test]
+    fn settling_a_split_job_still_marks_it_settled() {
+        let mut c = setup();
+        ctx(accounts(1), T0);
+        let sp = vec![Split { account: accounts(0), bps: 2_000 }, Split { account: accounts(3), bps: 1_000 }];
+        let id = c.create_job(accounts(2), accounts(4), U128(10_000), "spec".to_string(), T0 + 10_000, None, Some(sp));
+        ctx(accounts(4), T0);
+        let _ = c.ft_on_transfer(accounts(1), U128(10_000), id.to_string());
+        ctx(accounts(2), T0 + 1);
+        c.submit_result(id, "hash1".to_string(), "evidence".to_string());
+        ctx(accounts(3), T0 + 2);
+        let _ = c.settle(id, verdict(id, true, "provider_tee"));
+        let job = c.get_job(id).unwrap();
+        assert_eq!(job.status, JobStatus::Settled);
+        assert_eq!(job.splits.len(), 2);
+        assert_eq!(c.accrued_fees(accounts(4)).0, 100);
     }
 }

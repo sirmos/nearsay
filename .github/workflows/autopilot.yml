@@ -19,32 +19,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Restore round secrets from the last run
-        uses: actions/cache/restore@v4
-        with:
-          path: .dealer
-          key: dealer-${{ github.run_id }}
-          restore-keys: dealer-
       - name: Install the verifier's packages
         run: cd verifier && npm ci
       - name: Install near-cli-rs
         run: |
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/near-cli-rs/releases/latest/download/near-cli-rs-installer.sh | sh
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - name: Load the dealer key
+      - name: Load the account keys
         env:
-          KEY_PUBLIC: ${{ secrets.NS_VERIFIER_PUBLIC_KEY }}
-          KEY_PRIVATE: ${{ secrets.NS_VERIFIER_PRIVATE_KEY }}
+          VERIFIER_PUBLIC: ${{ secrets.NS_VERIFIER_PUBLIC_KEY }}
+          VERIFIER_PRIVATE: ${{ secrets.NS_VERIFIER_PRIVATE_KEY }}
+          SELLER_PUBLIC: ${{ secrets.NS_SELLER_PUBLIC_KEY }}
+          SELLER_PRIVATE: ${{ secrets.NS_SELLER_PRIVATE_KEY }}
+          LIAR_PUBLIC: ${{ secrets.NS_LIAR_PUBLIC_KEY }}
+          LIAR_PRIVATE: ${{ secrets.NS_LIAR_PRIVATE_KEY }}
         run: |
           set -a; . scripts/testnet.env; set +a
           node -e '
             const fs = require("fs"), os = require("os"), path = require("path");
-            const acct = process.env.NS_VERIFIER;
-            const body = JSON.stringify({ account_id: acct, public_key: process.env.KEY_PUBLIC, private_key: process.env.KEY_PRIVATE });
             const base = path.join(os.homedir(), ".near-credentials", "testnet");
-            fs.mkdirSync(path.join(base, acct), { recursive: true });
-            fs.writeFileSync(path.join(base, acct + ".json"), body, { mode: 0o600 });
-            fs.writeFileSync(path.join(base, acct, process.env.KEY_PUBLIC.replace(":", "_") + ".json"), body, { mode: 0o600 });
+            for (const [acct, pub, priv] of [[process.env.NS_VERIFIER, process.env.VERIFIER_PUBLIC, process.env.VERIFIER_PRIVATE], [process.env.NS_SELLER, process.env.SELLER_PUBLIC, process.env.SELLER_PRIVATE], [process.env.NS_LIAR, process.env.LIAR_PUBLIC, process.env.LIAR_PRIVATE]]) {
+              if (!pub || !priv) { console.log("no key for " + acct + ", skipping"); continue; }
+              const body = JSON.stringify({ account_id: acct, public_key: pub, private_key: priv });
+              fs.mkdirSync(path.join(base, acct), { recursive: true });
+              fs.writeFileSync(path.join(base, acct + ".json"), body, { mode: 0o600 });
+              fs.writeFileSync(path.join(base, acct, pub.replace(":", "_") + ".json"), body, { mode: 0o600 });
+              console.log("loaded the key for " + acct);
+            }
           '
       - name: Run the autopilot
         env:
@@ -55,9 +56,3 @@ jobs:
           git config user.email "autopilot@users.noreply.github.com"
           set -a; . scripts/testnet.env; set +a
           node services/autopilot.mjs
-      - name: Keep round secrets for the next run
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .dealer
-          key: dealer-${{ github.run_id }}

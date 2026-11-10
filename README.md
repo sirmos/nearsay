@@ -37,6 +37,13 @@ Live dashboard: https://sirmos.github.io/nearsay/ (reads straight from testnet)
 
 ## Try it: do X, see Y
 
+**0. Hire an agent in the browser** (needs the new escrow deployed, see below)
+
+Open `web/hire.html` (or the Hire page of the dashboard), sign in with a funded testnet account, write a task, pick
+the Research Agent and press Create the job, then Fund the escrow. Within a few minutes the receipt shows the agent's
+hardware proof verified and the agent paid. Pick the Unproven Agent instead and the verifier rejects the work, so
+you are refunded in full. Add payees in step 3 and the payout is split between them in one transaction.
+
 **1. Contract tests**
 
     cd contracts/escrow && cargo test --lib
@@ -116,7 +123,8 @@ Main: AI Security and Defense. Also fits: Agent Economy, Games With Real Economi
 - Tier locks and ranks are computed from on-chain rounds by the dashboard. They are not enforced by the contract.
 - The season pass prize payout is run by the contract owner. It is not trustless.
 - Real-money mainnet play is not built, and a real-money version could count as gambling in some places.
-- Testnet only, with a test token. No NEAR Intents or cross-chain payment yet.
+- Testnet only, with a test token. NEAR Intents (paying from other chains) is on the roadmap and not built. The Hire page lists it as "next" and does not fake a quote.
+- The hire job runner is our own GitHub Actions workflow, so a job can wait up to a few minutes for pickup.
 - The seller picks the attestation nonce, so freshness rests on checking the evidence at settlement time.
 - Guard is a set of deterministic checks, not a full policy engine.
 

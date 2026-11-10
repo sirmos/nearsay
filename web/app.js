@@ -15,7 +15,7 @@ const CFG = {
 };
 
 // ---------- state ----------
-let pickedJob = null, shownJob = null;
+let pickedJob = (() => { try { return Number(new URLSearchParams(location.search).get("id")) || null; } catch (e) { return null; } })(), shownJob = null;
 const finalJobs = new Map();    // settled/refunded jobs never change: cache them
 const finalRounds = new Map();  // settled/voided rounds never change
 let jobs = [], rounds = [], reps = [], bals = [];
@@ -122,11 +122,15 @@ function renderSlip() {
         el("div", { class: "line" }, el("dt", {}, "Held in escrow"), el("dd", {}, credits(j.amount))),
         el("div", { class: "line" }, el("dt", {}, "Fee (1%)"), el("dd", {}, settled ? credits(String(fee)) : "on settlement")),
         el("div", { class: "line" }, el("dt", {}, "Evidence"), el("dd", {}, k === "none" ? "waiting" : evTag(k), k === "attested" ? [" ", evLink(j)] : "")),
-        el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout))))),
+        el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout - (j.splits || []).reduce((a, x) => a + shareOf(j, x), 0n)))))),
+      ...(j.spec_text ? [el("p", { class: "task" }, el("span", { class: "sub" }, "Task: "), taskOnly(j.spec_text))] : []),
+      ...((j.splits || []).length ? [el("dl", { class: "splitlines" }, ...j.splits.map((s) => el("div", { class: "line" }, el("dt", {}, "Also paid: " + short(s.account, 12)), el("dd", {}, credits(String(shareOf(j, s)))))))] : []),
       el("p", { class: "foot" }, j.result_hash ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash, 10))] : "No result submitted yet"))];
   if (settled && k === "attested") { const seal = el("div", { class: "seal" }); seal.append(svgFrom(sealSVG("VERIFIED", "\u2713", "ATTESTED", "#0a6b52"))); kids.push(seal); }
   put("slip", ...kids);
 }
+const taskOnly = (t) => { const i = t.indexOf("Task: ") >= 0 ? t.indexOf("Task: ") + 6 : t.indexOf("Brief: ") >= 0 ? t.indexOf("Brief: ") + 7 : 0; return t.slice(i); };
+const shareOf = (j, s) => (payoutOf(j).payout * BigInt(s.bps)) / 10000n;
 function railStations(j) {
   const { payout } = payoutOf(j);
   const funded = j.status !== "Open", submitted = !!j.result_hash, s = j.status, k = evKind(j.evidence_ref);
@@ -412,7 +416,7 @@ function renderRounds() {
   }));
 }
 
-function renderAll() { renderPractice(); renderWallet(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
+function renderAll() { renderPractice(); renderWallet(); if (typeof renderHire === "function") renderHire(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
 
 
 // ---------- join: get an account, get test NEAR, sign in ----------
@@ -547,10 +551,11 @@ const cliLine = (r, i) => "near contract call-function as-transaction " + CFG.to
 
 function renderWallet() {
   renderJoin();
+  if (typeof renderHire === "function") renderHire();
   const bar = $("walletbar");
   if (!bar) return;
   const ns = $("navsign");
-  if (ns) ns.textContent = me ? me : "Sign in"; if (ns) { ns.onclick = me ? signOut : (PAGE === "arena" || PAGE === "passport" ? connect : () => { location.href = "arena.html#join"; }); ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account"; }
+  if (ns) ns.textContent = me ? me : "Sign in"; if (ns) { ns.onclick = me ? signOut : (PAGE === "arena" || PAGE === "passport" || PAGE === "hire" ? connect : () => { location.href = "arena.html#join"; }); ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account"; }
   const kids = [];
   const open = rounds.filter(openNow);
   if (walletState === "loading") kids.push(el("span", { class: "grow" }, "Loading wallet options…"));

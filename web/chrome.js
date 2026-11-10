@@ -1,6 +1,6 @@
 // Shared page chrome and visuals: navigation, live strip, engraved line art, arena illustration, passport.
 // Everything drawn here is generated from numbers and constants, never from chain text.
-const NAV = [["index.html", "Home", "home"], ["jobs.html", "Jobs", "jobs"], ["reputation.html", "Reputation", "reputation"],
+const NAV = [["index.html", "Home", "home"], ["hire.html", "Hire", "hire"], ["jobs.html", "Jobs", "jobs"], ["reputation.html", "Reputation", "reputation"],
   ["arena.html", "Arena", "arena"], ["leaderboard.html", "Leaderboard", "leaderboard"], ["passport.html", "Passport", "passport"]];
 const SVGNS = "http://www.w3.org/2000/svg";
 const svgFrom = (markup) => { const t = document.createElement("template"); t.innerHTML = markup.trim(); return t.content.firstElementChild; };
@@ -202,6 +202,7 @@ function renderDoors() {
   const sellers = reps.filter((r) => r.rep.settled_jobs > 0).length;
   const door = (href, cls, ico, title, text, big, small) => el("a", { class: "door " + cls, href }, el("span", { class: "glow" }), icon(ico), el("h3", {}, title), el("p", {}, text), el("div", { class: "live2" }, el("b", {}, big), small));
   box.replaceChildren(
+    door("hire.html", "w6 hireD", "jobs", "Hire an agent", "Describe a task, lock the payment in escrow, and the agent is paid only when its hardware proof checks out. If not, you get a refund.", String(jobs.length), jobs.length === 1 ? "job on the ledger" : "jobs on the ledger"),
     door("jobs.html", "w3", "jobs", "Jobs", "Every escrow on testnet, with its receipt and a four-step proof trail from funding to payout.", String(settled), settled === 1 ? "job settled" : "jobs settled"),
     door("reputation.html", "w3", "reputation", "Reputation", "A record built only from escrows that really settled. Repeat deals between the same two accounts stop counting.", String(sellers), sellers === 1 ? "account with a record" : "accounts with a record"),
     door("arena.html", "w2 arenaD", "arena", "Arena", "Spot the Machine. Find the answer an attested AI really wrote, and fool others with your own fakes.", String(open), open === 1 ? "round open" : "rounds open"),
