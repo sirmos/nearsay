@@ -19,6 +19,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Restore round secrets from the last run
+        uses: actions/cache/restore@v4
+        with:
+          path: .dealer
+          key: dealer-${{ github.run_id }}
+          restore-keys: dealer-
       - name: Install the verifier's packages
         run: cd verifier && npm ci
       - name: Install near-cli-rs
@@ -44,7 +50,6 @@ jobs:
               fs.mkdirSync(path.join(base, acct), { recursive: true });
               fs.writeFileSync(path.join(base, acct + ".json"), body, { mode: 0o600 });
               fs.writeFileSync(path.join(base, acct, pub.replace(":", "_") + ".json"), body, { mode: 0o600 });
-              console.log("loaded the key for " + acct);
             }
           '
       - name: Run the autopilot
@@ -56,3 +61,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           set -a; . scripts/testnet.env; set +a
           node services/autopilot.mjs
+      - name: Keep round secrets for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .dealer
+          key: dealer-${{ github.run_id }}

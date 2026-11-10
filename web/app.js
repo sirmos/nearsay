@@ -199,7 +199,7 @@ function renderStats() {
     [String(buildBoard(false).length), "players ranked", false],
     [String(rounds.filter((r) => roundKind(r.evidence) === "attested").length), "attested rounds", att > 0],
   ] : [
-    [String(settled.length), "jobs settled by escrow", false],
+    [String(settled.length), settled.length === 1 ? "job settled by escrow" : "jobs settled by escrow", false],
     [fmt(String(paid)) + " NSC", "paid to sellers", false],
     [String(rounds.length), rounds.length === 1 ? "Arena round played" : "Arena rounds played", false],
     [String(att), "attested settlements", att > 0],
