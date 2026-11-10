@@ -52,7 +52,7 @@ jobs:
           NEARAI_API_KEY: ${{ secrets.NEARAI_API_KEY }}
           AUTOPILOT_MINUTES: "335"
         run: |
-          git config user.name "nearsay autopilot"
-          git config user.email "autopilot@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           set -a; . scripts/testnet.env; set +a
           node services/autopilot.mjs
