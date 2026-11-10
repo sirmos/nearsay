@@ -9,6 +9,7 @@
 //   AUTOPILOT_MAX_ROUNDS (default 8) rounds this run may open (caps NEAR AI credit use)
 import { execFileSync } from "node:child_process";
 import { need, view } from "./lib.mjs";
+import { processJobs } from "./runner.mjs";
 
 const arena = need("NS_ARENA");
 const deadline = Date.now() + Number(process.env.AUTOPILOT_MINUTES || 330) * 60000;

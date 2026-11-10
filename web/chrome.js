@@ -108,7 +108,7 @@ function stampSVG(roundId, kind, tier) {
 // ---------- chrome: nav, live strip, footer ----------
 function buildChrome() {
   const page = document.body.dataset.page || "home";
-  const links = NAV.map(([href, label, key]) => el("a", { href, "aria-current": key === page ? "page" : null }, label));
+  const links = NAV.map(([href, label, key]) => el("a", { href, "aria-current": (key === page || (key === "arena" && (page === "practice" || page === "how"))) ? "page" : null }, label));
   const brand = el("a", { class: "brand", href: "index.html" });
   brand.append(svgFrom('<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="7" fill="none" stroke="#4fd6a2" stroke-width="2"/><path d="M7 14.5l4 4 8-10" fill="none" stroke="#4fd6a2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'), "Nearsay");
   const top = el("header", { class: "topbar" },

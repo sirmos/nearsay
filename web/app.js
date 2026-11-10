@@ -552,10 +552,10 @@ const cliLine = (r, i) => "near contract call-function as-transaction " + CFG.to
 function renderWallet() {
   renderJoin();
   if (typeof renderHire === "function") renderHire();
+  const ns = $("navsign");
+  if (ns) ns.textContent = me ? me : "Sign in"; if (ns) { ns.onclick = me ? signOut : connect; ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account"; }
   const bar = $("walletbar");
   if (!bar) return;
-  const ns = $("navsign");
-  if (ns) ns.textContent = me ? me : "Sign in"; if (ns) { ns.onclick = me ? signOut : (PAGE === "arena" || PAGE === "passport" || PAGE === "hire" ? connect : () => { location.href = "arena.html#join"; }); ns.title = me ? "Sign out" : "Sign in with your NEAR testnet account"; }
   const kids = [];
   const open = rounds.filter(openNow);
   if (walletState === "loading") kids.push(el("span", { class: "grow" }, "Loading wallet options…"));
