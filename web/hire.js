@@ -88,7 +88,7 @@ function buildHire() {
           hireUI.splits,
           el("div", { class: "faucetrow" },
             el("button", { class: "pbtn", type: "button", onclick: () => { if (hireUI.splits.children.length < 4) addSplitRow(); } }, "Add a payee"),
-            el("button", { class: "pbtn", type: "button", onclick: () => { hireUI.splits.replaceChildren(); addSplitRow(CFG.accounts.buyer, 20); addSplitRow(CFG.accounts.verifier, 10); renderHire(); } }, "Try an example team")))),
+            el("button", { class: "pbtn", type: "button", onclick: () => { hireUI.splits.replaceChildren(); addSplitRow(CFG.accounts.buyer, 20); addSplitRow(CFG.accounts.verifier, 10); if (taskText().length < 10) hireUI.task.value = EXAMPLES[2]; renderHire(); } }, "Try an example team")))),
       el("div", { class: "hcol" },
         el("div", { class: "fstep sticky" }, el("h3", {}, "4. Review and fund"), hireUI.summary, hireUI.status, hireUI.action),
         hireUI.mine)));
