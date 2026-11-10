@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "job_id": 2,
+  "model": "z-ai/glm-5.3-flash",
+  "request_b64": "eyJtb2RlbCI6InotYWkvZ2xtLTUuMy1mbGFzaCIsIm1lc3NhZ2VzIjpbeyJyb2xlIjoidXNlciIsImNvbnRlbnQiOiJZb3UgYXJlIGEgY2FyZWZ1bCByZXNlYXJjaCBhZ2VudC4gQW5zd2VyIGluIGF0IG1vc3QgMTIwIHdvcmRzLCBwbGFpbmx5IGFuZCB3aXRob3V0IGh5cGUuXG5cblRhc2s6IFdyaXRlIGEgZnJpZW5kbHkgb25lLWxpbmUgYXBvbG9neSBmb3IgYSBsYXRlIGRlbGl2ZXJ5LiJ9XSwic3RyZWFtIjpmYWxzZX0=",
+  "response_b64": "eyJjaG9pY2VzIjpbeyJtZXNzYWdlIjp7InJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjoiXCJXZSdyZSBzb3JyeSB5b3VyIG9yZGVyIGFycml2ZWQgbGF0ZXIgdGhhbiBwcm9taXNlZCDigJQgdGhhbmsgeW91IGZvciB5b3VyIHBhdGllbmNlLCBhbmQgd2UgYXBwcmVjaWF0ZSB5b3VyIHVuZGVyc3RhbmRpbmcuXCIifX1dfQ==",
+  "preflight": {
+    "nonce": "",
+    "report": {
+      "gateway_attestation": null,
+      "model_attestations": []
+    }
+  },
+  "signature": null
+}
