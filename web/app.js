@@ -121,9 +121,9 @@ function renderSlip() {
         el("div", { class: "line" }, el("dt", {}, "Buyer"), el("dd", {}, link(j.buyer))),
         el("div", { class: "line" }, el("dt", {}, "Seller"), el("dd", {}, link(j.seller))),
         el("div", { class: "line" }, el("dt", {}, "Held in escrow"), el("dd", {}, credits(j.amount))),
-        el("div", { class: "line" }, el("dt", {}, "Fee (1%)"), el("dd", {}, settled ? credits(String(fee)) : "on settlement")),
-        el("div", { class: "line" }, el("dt", {}, "Evidence"), el("dd", {}, k === "none" ? "waiting" : evTag(k), k === "attested" ? [" ", evLink(j)] : "")),
-        el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout - (j.splits || []).reduce((a, x) => a + shareOf(j, x), 0n)))))),
+        el("div", { class: "line" }, el("dt", {}, "Fee (1%)"), el("dd", {}, settled ? credits(String(fee)) : j.status === "Refunded" ? "none" : "on settlement")),
+        el("div", { class: "line" }, el("dt", {}, "Evidence"), el("dd", {}, j.status === "Refunded" && j.result_hash ? el("span", { class: "tag bad" }, "Rejected") : k === "none" ? "waiting" : evTag(k), k === "attested" ? [" ", evLink(j)] : "")),
+        j.status === "Refunded" ? el("div", { class: "line total" }, el("dt", {}, "Returned to buyer"), el("dd", {}, credits(j.amount))) : el("div", { class: "line total" }, el("dt", {}, settled ? "Seller received" : "Seller receives"), el("dd", {}, credits(String(payout - (j.splits || []).reduce((a, x) => a + shareOf(j, x), 0n)))))),
       ...(j.spec_text ? [el("p", { class: "task" }, el("span", { class: "sub" }, "Task: "), taskOnly(j.spec_text))] : []),
       ...((j.splits || []).length ? [el("dl", { class: "splitlines" }, ...j.splits.map((s) => el("div", { class: "line" }, el("dt", {}, "Also paid: " + short(s.account, 12)), el("dd", {}, credits(String(shareOf(j, s)))))))] : []),
       el("p", { class: "foot" }, j.result_hash ? ["Result hash ", el("span", { class: "hash" }, short(j.result_hash, 10))] : "No result submitted yet"))];
@@ -222,7 +222,7 @@ function renderJobs() {
       el("td", {}, link(j.buyer), " pays ", link(j.seller)),
       el("td", {}, credits(j.amount)),
       el("td", {}, el("span", { class: "tag " + kind }, label)),
-      el("td", {}, evKind(j.evidence_ref) === "none" ? el("span", { class: "sub" }, "none") : evTag(evKind(j.evidence_ref))));
+      el("td", {}, j.status === "Refunded" && j.result_hash ? el("span", { class: "tag bad" }, "Rejected") : evKind(j.evidence_ref) === "none" ? el("span", { class: "sub" }, "none") : evTag(evKind(j.evidence_ref))));
   });
   put("jobtable", el("table", {}, el("thead", {}, el("tr", {}, ["Job", "Parties", "Amount", "Status", "Evidence"].map((h) => el("th", {}, h)))), el("tbody", {}, rows)), pg.pager);
 }
