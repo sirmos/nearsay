@@ -346,3 +346,29 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 .hsummary dt { color: var(--soft); } .hsummary dd { margin: 0; text-align: right; }
 .hsummary .line.total dd { color: var(--teal); font-family: var(--display); font-size: 19px; font-weight: 700; }
 .acbody .tag { justify-self: start; }
+.answercard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px 16px; margin: 24px 0 8px; }
+.answercard .ahead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.answercard blockquote { margin: 10px 0 12px; padding: 4px 0 4px 16px; border-left: 3px solid var(--accent); font-family: var(--serif); font-size: 19px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- watch a payout ---------- */
+.stagebox { background: radial-gradient(600px 300px at 50% 0, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 10px; margin-top: 30px; }
+.stage { width: 100%; height: auto; display: block; }
+.stage .wire { fill: none; stroke: var(--line-2); stroke-width: 2; stroke-dasharray: 5 6; }
+.stage .actor rect { fill: var(--raise); stroke: var(--line-2); stroke-width: 1.5; transition: stroke .4s, fill .4s; }
+.stage .actor.lit rect { stroke: var(--accent); fill: color-mix(in srgb, var(--accent) 12%, var(--raise)); }
+.stage .t1 { fill: var(--ink); font: 700 17px var(--display); } .stage .t2 { fill: var(--soft); font: 12.5px "IBM Plex Sans", sans-serif; }
+.stage .task rect, .stage .proof rect { fill: var(--paper); stroke: var(--engrave); }
+.stage .task text, .stage .proof text { fill: var(--paper-ink); font: 12.5px var(--mono); }
+.stage .task, .stage .proof, .stage .checks, .stage .lock { transition: opacity .5s; }
+.stage .checks text { fill: var(--teal); font: 13px "IBM Plex Sans", sans-serif; }
+.stage .chk { opacity: 0; transition: opacity .4s; } .stage .chk.on { opacity: 1; }
+.stage .lock rect { fill: var(--amber); } .stage .lock path { fill: none; stroke: var(--amber); stroke-width: 3; transition: transform .4s; transform: translateY(-6px); } .stage .lock.shut path { transform: translateY(0); }
+.stage .coin { fill: var(--amber); stroke: #8a5006; stroke-width: 2; transition: transform 1.1s cubic-bezier(.5,.1,.2,1), opacity .5s; opacity: 0; }
+.stage .coin.fee { fill: var(--violet); stroke: #4b3d99; }
+.stage[data-step="4"][data-end="fail"] .coin:first-of-type { fill: var(--bad); }
+.wpanel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px 20px; margin-top: 14px; display: grid; gap: 10px; }
+.wtitle { margin: 0; font-family: var(--display); font-size: 24px; } .wtext { margin: 0; max-width: 70ch; color: var(--soft); font-size: 17px; } .wamount { margin: 0; color: var(--teal); font-weight: 600; }
+.wdots { display: flex; gap: 8px; }
+.wdot { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; cursor: pointer; font-weight: 600; color: var(--soft); }
+.wdot.done { color: var(--teal); border-color: var(--teal); } .wdot.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pbtn.on { border-color: var(--accent); color: var(--accent); }

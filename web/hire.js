@@ -134,9 +134,9 @@ function renderHire() {
 async function createJob() {
   if (!me) return connect();
   if (problems().length) return renderHire();
-  const text = fullPrompt(), hash = await sha256Hex(text), a = agentOf();
+  const text = fullPrompt(), hash = await sha256Hex(text), a = agentOf(), lastId = jobs.reduce((m, x) => Math.max(m, x.id), 0);
   const args = { seller: a.seller(), token: CFG.token, amount: String(rawAmount()), spec_hash: hash, deadline_ms: Date.now() + hire.hours * 3600000, spec_text: text, splits: splitsArg() };
-  await send(CFG.escrow, [["create_job", args, 40n * 10n ** 12n]], "Job created. Next, fund the escrow.");
+  await send(CFG.escrow, [["create_job", args, 40n * 10n ** 12n]], "Next, fund the escrow.", () => jobs.some((x) => x.buyer === me && x.spec_hash === hash && x.status === "Open" && x.id > lastId));
   if (flashMsg && flashMsg.kind === "err") return renderHire();
   for (let i = 0; i < 8 && !hire.jobId; i++) {
     await new Promise((r) => setTimeout(r, i ? 2500 : 1500));
@@ -148,7 +148,7 @@ async function createJob() {
 }
 async function fundJob(j) {
   hire.jobId = j.id;
-  await send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.escrow, amount: String(j.amount), msg: String(j.id) }, STAKE_GAS, "1"]], "Escrow funded. The agent starts now.");
+  await send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.escrow, amount: String(j.amount), msg: String(j.id) }, STAKE_GAS, "1"]], "The agent starts now.", () => { const n = jobs.find((x) => x.id === j.id); return !!n && n.status !== "Open"; });
   for (let i = 0; i < 6; i++) { await new Promise((r) => setTimeout(r, 2500)); await refresh(); const now = jobs.find((x) => x.id === j.id); if (now && now.status !== "Open") break; }
   renderAll();
 }

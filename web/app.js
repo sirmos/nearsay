@@ -11,6 +11,7 @@ const CFG = {
   feeBps: 100n,
   explorer: "https://testnet.nearblocks.io/address/",
   evidenceBase: "https://github.com/sirmos/nearsay/blob/main/evidence/",
+  rawBase: "https://raw.githubusercontent.com/sirmos/nearsay/main/evidence/",
   refreshMs: 12000,
 };
 
@@ -131,6 +132,37 @@ function renderSlip() {
 }
 const taskOnly = (t) => { const i = t.indexOf("Task: ") >= 0 ? t.indexOf("Task: ") + 6 : t.indexOf("Brief: ") >= 0 ? t.indexOf("Brief: ") + 7 : 0; return t.slice(i); };
 const shareOf = (j, s) => (payoutOf(j).payout * BigInt(s.bps)) / 10000n;
+// The agent's actual reply, read from the public evidence file that the job runner commits to the repo.
+const answers = new Map();
+const fromB64 = (b) => new TextDecoder().decode(Uint8Array.from(atob(b), (c) => c.charCodeAt(0)));
+async function loadAnswer(id) {
+  const cur = answers.get(id);
+  if (cur && (cur.text || cur.loading || Date.now() - cur.at < 30000)) return;
+  answers.set(id, { loading: true, at: Date.now() });
+  try {
+    const r = await fetch(CFG.rawBase + "job-" + id + ".json", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const b = await r.json();
+    const text = String(JSON.parse(fromB64(b.response_b64)).choices[0].message.content || "").trim();
+    answers.set(id, { text, model: b.model, at: Date.now() });
+  } catch (e) { answers.set(id, { err: String(e.message || e), at: Date.now() }); }
+  renderAnswer();
+}
+function renderAnswer() {
+  const box = $("answerbox"); if (!box) return;
+  const j = currentJob();
+  if (!j || !j.result_hash) return box.replaceChildren();
+  loadAnswer(j.id);
+  const a = answers.get(j.id) || {};
+  const k = evKind(j.evidence_ref), settled = j.status === "Settled";
+  const status = settled && k === "attested" ? el("span", { class: "tag ok" }, "Hardware proof verified")
+    : j.status === "Refunded" ? el("span", { class: "tag bad" }, "Rejected, buyer refunded") : el("span", { class: "tag wait" }, "Waiting for the verifier");
+  box.replaceChildren(el("div", { class: "answercard" },
+    el("div", { class: "ahead" }, el("h2", { class: "sec", style: "margin:0" }, "What the agent wrote"), status),
+    j.spec_text ? el("p", { class: "sub" }, "Task: " + taskOnly(j.spec_text)) : "",
+    a.text ? el("blockquote", {}, a.text) : el("p", { class: "empty" }, a.err ? "The answer file is still being published. It appears here a minute or two after the agent submits." : "Loading the answer…"),
+    el("p", { class: "sub" }, a.model ? "Model " + a.model + ". " : "", el("a", { href: CFG.evidenceBase + "job-" + j.id + ".json", target: "_blank", rel: "noopener" }, "Open the full evidence file"), " to check the proof yourself.")));
+}
 function railStations(j) {
   const { payout } = payoutOf(j);
   const funded = j.status !== "Open", submitted = !!j.result_hash, s = j.status, k = evKind(j.evidence_ref);
@@ -416,7 +448,7 @@ function renderRounds() {
   }));
 }
 
-function renderAll() { renderPractice(); renderWallet(); if (typeof renderHire === "function") renderHire(); tickCountdowns(); renderSlip(); renderRail(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
+function renderAll() { renderPractice(); renderWallet(); if (typeof renderHire === "function") renderHire(); tickCountdowns(); renderSlip(); renderRail(); renderAnswer(); renderStats(); renderJobs(); renderRep(); renderBal(); renderRounds(); renderBoard(); renderLiars(); renderHud(); renderTiers(); renderPass(); renderCalls(); renderDoors(); renderPassport(); renderTicker(); }
 
 
 // ---------- join: get an account, get test NEAR, sign in ----------
@@ -520,22 +552,35 @@ const friendly = (e) => {
   if (/clos|cancel|reject|denied|declin|abort/i.test(m)) return "The wallet window was closed before you approved, so nothing was sent.";
   return "The wallet did not send it: " + m;
 };
-async function send(receiver, actions, okText) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Ask the chain, not the wallet window, whether it worked. Wallet pop-ups often report an error even though the transaction went through.
+async function confirmed(verify, tries = 7) {
+  if (!verify) return false;
+  for (let i = 0; i < tries; i++) { await sleep(3500); try { await refresh(); if (verify()) return true; } catch (e) { /* try again */ } }
+  return false;
+}
+async function send(receiver, actions, okText, verify) {
   if (busy) return;
   busy = true; flashMsg = { kind: "ok", text: "Opening your wallet. Approve the transaction in the pop-up window." }; renderWallet(); renderRounds();
+  let failure = null;
   try {
     const w = await selector.wallet();
     await w.signAndSendTransaction({ receiverId: receiver, actions: actions.map(([methodName, args, gas, deposit]) => ({ type: "FunctionCall", params: { methodName, args, gas: String(gas), deposit: deposit || "0" } })) });
-    flashMsg = { kind: "ok", text: okText || "Sent. Your balance and the rounds update in a few seconds." };
-    setTimeout(refresh, 3500); setTimeout(refresh, 9000);
-  } catch (e) { flashMsg = { kind: "err", text: friendly(e) }; }
-  busy = false; renderWallet(); renderRounds();
+  } catch (e) { failure = e; }
+  flashMsg = { kind: "ok", text: failure ? "The wallet reported a problem. Checking NEAR to see if it went through…" : "Sent. Confirming on NEAR…" };
+  renderWallet(); renderRounds(); if (typeof renderHire === "function") renderHire();
+  const ok = verify ? await confirmed(verify, failure ? 7 : 5) : !failure;
+  if (ok) flashMsg = { kind: "ok", text: "Confirmed on NEAR. " + (okText || "Your balance and the rounds are updated.") };
+  else if (failure) flashMsg = { kind: "err", text: friendly(failure) + " If you did approve it, wait a minute and check again." };
+  else flashMsg = { kind: "ok", text: "Sent. " + (okText || "") + " It can take a minute to show up." };
+  setTimeout(refresh, 3000);
+  busy = false; renderWallet(); renderRounds(); if (typeof renderHire === "function") renderHire();
 }
-const getCredits = () => send(CFG.token, [["register", { account_id: me }, 30n * 10n ** 12n], ["faucet", { amount: "20000000" }, 30n * 10n ** 12n]], "You now have 20 free test credits (NSC).");
+const getCredits = () => { const before = BigInt(myBalance ?? "0"); return send(CFG.token, [["register", { account_id: me }, 30n * 10n ** 12n], ["faucet", { amount: "20000000" }, 30n * 10n ** 12n]], "You now have 20 free test credits (NSC).", () => BigInt(myBalance ?? "0") > before); };
 const stakeOn = (r, i) => {
   if (!tierOpen(tierOf(r))) { flashMsg = { kind: "err", text: "This tier is locked. " + lockNote(tierOf(r)) + "." }; return renderWallet(); }
   if (BigInt(myBalance ?? "0") < BigInt(r.stake)) { flashMsg = { kind: "err", text: "Not enough test credits. Use Get test credits first." }; return renderWallet(); }
-  return send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.arena, amount: String(r.stake), msg: r.id + ":" + i }, STAKE_GAS, "1"]], "Pick locked in: " + credits(r.stake) + " is staked on answer " + String.fromCharCode(65 + i) + ". The result appears here after the round closes.");
+  return send(CFG.token, [["ft_transfer_call", { receiver_id: CFG.arena, amount: String(r.stake), msg: r.id + ":" + i }, STAKE_GAS, "1"]], "Pick locked in: " + credits(r.stake) + " is staked on answer " + String.fromCharCode(65 + i) + ". The result appears here after the round closes.", () => { const x = rounds.find((y) => y.id === r.id); return !!(x && myGuess(x)); });
 };
 const claim = () => send(CFG.arena, [["claim", { token: CFG.token }, STAKE_GAS]], "Claimed. The winnings are in your balance.");
 
