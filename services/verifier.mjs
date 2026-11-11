@@ -69,7 +69,7 @@ async function handle(job) {
   for (const s of r.steps) console.log(`  ${s.ok ? "PASS" : "FAIL"}  ${s.name}${s.detail ? "  [" + s.detail + "]" : ""}`);
   console.log(`  => verdict ok=${r.verdict.ok}, signature_kind=${r.verdict.signature_kind}`);
   if (dry) return console.log("  --dry: not settling");
-  call(escrow, "settle", { job_id: job.id, verdict: r.verdict }, verifier);
+  call(escrow, "settle", { job_id: job.id, verdict: r.verdict }, verifier, { gas: "250 Tgas" });
   const after = await view(escrow, "get_job", { job_id: job.id });
   console.log(`  settled on-chain, job status: ${after.status}`);
   if (r.verdict.ok && after.status !== "Settled") console.log("  The verdict was ok but the escrow refunded: its accepted_kinds does not include " + r.verdict.signature_kind + ". Redeploy the escrow with that kind accepted.");
