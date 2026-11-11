@@ -12,7 +12,7 @@ const CFG = {
   explorer: "https://testnet.nearblocks.io/address/",
   evidenceBase: "https://github.com/sirmos/nearsay/blob/main/evidence/",
   rawBase: "https://raw.githubusercontent.com/sirmos/nearsay/main/evidence/",
-  refreshMs: 12000,
+  refreshMs: 30000,
 };
 
 // ---------- state ----------
@@ -20,19 +20,22 @@ let pickedJob = (() => { try { return Number(new URLSearchParams(location.search
 const finalJobs = new Map();    // settled/refunded jobs never change: cache them
 const finalRounds = new Map();  // settled/voided rounds never change
 let jobs = [], rounds = [], reps = [], bals = [];
-let failures = 0, hasData = false;
+let failures = 0, hasData = false, hasLive = false;
+const finalCalls = new Map();   // closed calls never change either
 
 // ---------- chain access (read-only, with retry) ----------
 async function rpcView(account, method, args = {}, tries = 6) {
   let lastErr;
   for (let t = 0; t < tries; t++) {
     try {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 9000);
       const res = await fetch(RPCS[rpcIdx % RPCS.length], {
-        method: "POST", headers: { "content-type": "application/json" },
+        signal: ctl.signal, method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query",
           params: { request_type: "call_function", finality: "final", account_id: account,
             method_name: method, args_base64: btoa(JSON.stringify(args)) } }),
       });
+      clearTimeout(timer);
       if (!res.ok) throw new Error("HTTP " + res.status);
       const j = await res.json();
       if (j.error) throw new Error(j.error.data || j.error.message || "RPC error");
@@ -374,7 +377,13 @@ async function refreshPass() {
 
 async function readCalls() {
   const out = [];
-  for (let i = 1; i < 100; i++) { const c = await rpcView(CFG.arena, "get_call", { call_id: i }); if (!c) break; out.push(c); }
+  for (let i = 1; i < 200; i++) {
+    if (finalCalls.has(i)) { out.push(finalCalls.get(i)); continue; }
+    const c = await rpcView(CFG.arena, "get_call", { call_id: i });
+    if (!c) break;
+    if (Date.now() > Number(c.closes_ms) + 60000) finalCalls.set(i, c);
+    out.push(c);
+  }
   return out;
 }
 function renderCalls() {
@@ -606,7 +615,7 @@ function renderWallet() {
   if (walletState === "loading") kids.push(el("span", { class: "grow" }, "Loading wallet options…"));
   else if (me) {
     kids.push(el("span", { class: "who" }, "Playing as ", el("b", {}, me), myBalance !== null ? " · " + credits(myBalance) : ""));
-    if (myBalance !== null && BigInt(myBalance) === 0n) kids.push(el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: getCredits }, "Get test credits"));
+    if (myBalance !== null && BigInt(myBalance) < 10000000n) kids.push(el("button", { class: "pbtn go", type: "button", disabled: busy ? "" : null, onclick: getCredits }, "Get test credits"));
     kids.push(el("button", { class: "pbtn", type: "button", onclick: signOut }, "Sign out"));
   } else {
     kids.push(el("button", { class: "pbtn go", type: "button", onclick: connect }, "Sign in to play"));
@@ -685,8 +694,8 @@ async function refresh() {
       Promise.all(Object.values(CFG.accounts).map(async (account) => ({ account, balance: await rpcView(CFG.token, "ft_balance_of", { account_id: account }) }))),
     ]);
     jobs = j; rounds = r; reps = rp; bals = bl;
-    try { calls = await readCalls(); } catch (e) { calls = []; }
-    failures = 0; hasData = true;
+    try { calls = await readCalls(); } catch (e) { /* keep the last calls */ }
+    failures = 0; hasData = true; hasLive = true;
     renderAll(); refreshMine(); refreshPass();
     live.className = "live fresh";
     livetext.textContent = "Live from NEAR testnet, updated " + new Date().toLocaleTimeString();
@@ -695,16 +704,33 @@ async function refresh() {
     // One slow answer from the public node is normal. Keep the last data and only say so after repeated misses.
     if (failures >= 3 || !hasData) {
       live.className = "live down";
-      livetext.textContent = hasData ? "Reconnecting to NEAR testnet, showing the last data" : "Cannot reach NEAR testnet yet (" + e.message + "). Retrying";
+      livetext.textContent = hasData ? "Reconnecting to NEAR testnet, showing saved data" : "Connecting to NEAR testnet, retrying";
     }
   }
 }
 ($("foot") || document.body).append(link(CFG.escrow, "Escrow contract"), link(CFG.arena, "Arena contract"), link(CFG.token, "Test credits (NSC) token"),
   el("a", { href: "https://github.com/sirmos/nearsay", target: "_blank", rel: "noopener" }, "Source code"));
+// Show the saved snapshot straight away, then let the live read from the chain replace it.
+async function seedSnapshot() {
+  try {
+    const r = await fetch("snapshot.json?v=" + Math.floor(Date.now() / 60000), { cache: "no-cache" });
+    if (!r.ok) return;
+    const s = await r.json();
+    if (hasLive || !Array.isArray(s.rounds)) return;
+    for (const x of s.jobs || []) if (isFinal(x.status)) finalJobs.set(x.id, x);
+    for (const x of s.rounds || []) if (isFinal(x.status)) finalRounds.set(x.id, x);
+    for (const x of s.calls || []) if (Date.now() > Number(x.closes_ms) + 60000) finalCalls.set(x.id, x);
+    jobs = s.jobs || []; rounds = s.rounds || []; reps = s.reps || []; bals = s.bals || []; calls = s.calls || [];
+    hasData = true;
+    renderAll();
+    livetext.textContent = "Showing saved data from " + new Date(s.at).toLocaleTimeString() + ", connecting to NEAR testnet";
+  } catch (e) { /* no snapshot yet: the live read still runs */ }
+}
 renderHowto();
 renderAll();
-refresh();
-setInterval(refresh, CFG.refreshMs);
+const snapReady = seedSnapshot();
+snapReady.finally(refresh);
+setInterval(() => { if (!document.hidden) refresh(); }, CFG.refreshMs);
 pollBlock(); setInterval(pollBlock, 5000); setInterval(tickTicker, 1000);
 document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));

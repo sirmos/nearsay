@@ -122,10 +122,11 @@ function renderHire() {
   hireUI.status.replaceChildren(...st);
   const acts = [];
   if (!me) acts.push(el("button", { class: "pbtn go", type: "button", onclick: connect }, "Sign in"));
-  else if (myBalance !== null && BigInt(myBalance) === 0n) acts.push(el("button", { class: "pbtn go", type: "button", onclick: getCredits, disabled: busy ? "" : null }, "Get test credits"));
+  else if (myBalance !== null && BigInt(myBalance) < amt && !(j && j.status === "Open")) acts.push(el("button", { class: "pbtn go", type: "button", onclick: getCredits, disabled: busy ? "" : null }, "Get test credits"));
   else if (j && j.status === "Open") acts.push(el("button", { class: "pbtn go", type: "button", onclick: () => fundJob(j), disabled: busy ? "" : null }, "Fund the escrow"));
   else if (!j || j.status === "Settled" || j.status === "Refunded") acts.push(el("button", { class: "pbtn go", type: "button", disabled: errs.length || busy ? "" : null, onclick: createJob }, "Create the job"));
   if (j && (j.status === "Settled" || j.status === "Refunded")) acts.push(el("button", { class: "pbtn", type: "button", onclick: () => { hire.jobId = null; renderAll(); } }, "Hire again"));
+  if (me && myBalance !== null && BigInt(myBalance) < 15000000n && BigInt(myBalance) >= amt) acts.push(el("button", { class: "pbtn", type: "button", onclick: getCredits, disabled: busy ? "" : null }, "Get 20 more test credits"));
   hireUI.action.replaceChildren(...acts);
   const mine = me ? jobs.filter((x) => x.buyer === me && x.status === "Open" && x.id !== hire.jobId) : [];
   hireUI.mine.replaceChildren(...(mine.length ? [el("div", { class: "fstep" }, el("h3", {}, "Your unfunded jobs"), el("p", { class: "sub" }, "These were created but never funded. Fund them to start the work."),

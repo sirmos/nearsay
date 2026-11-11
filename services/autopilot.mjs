@@ -8,7 +8,7 @@
 //   ROUND_MINUTES     (default 45)   guessing window per round
 //   AUTOPILOT_MAX_ROUNDS (default 8) rounds this run may open (caps NEAR AI credit use)
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { need, view, call } from "./lib.mjs";
 import { processJobs } from "./runner.mjs";
 
@@ -47,12 +47,32 @@ async function allRounds() {
 }
 const tierOf = (r) => Math.min(Math.max(r.answers.length - 1, 1), 4);
 
+// A copy of what the site reads from the chain, committed to the repo. The site shows it instantly on load,
+// so a slow or blocked public RPC node never leaves a visitor with an empty page.
+const SNAP = new URL("../web/snapshot.json", import.meta.url);
+let snapDirty = false, lastSnapPush = 0;
+async function writeSnapshot(rounds) {
+  const token = need("NS_CREDITS"), escrow = need("NS_ESCROW");
+  const jobs = [], calls = [];
+  for (let i = 1; i < 500; i++) { const j = await view(escrow, "get_job", { job_id: i }); if (!j) break; jobs.push(j); }
+  for (let i = 1; i < 200; i++) { const c = await view(arena, "get_call", { call_id: i }); if (!c) break; calls.push(c); }
+  const reps = [];
+  for (const account of [...new Set(jobs.map((j) => j.seller))]) reps.push({ account, rep: await view(escrow, "get_reputation", { account_id: account }) });
+  const bals = [];
+  for (const account of [process.env.NS_BUYER, process.env.NS_SELLER, process.env.NS_LIAR, process.env.NS_VERIFIER].filter(Boolean)) bals.push({ account, balance: await view(token, "ft_balance_of", { account_id: account }) });
+  const body = JSON.stringify({ jobs, rounds, calls, reps, bals });
+  let old = ""; try { old = JSON.stringify((({ at, ...rest }) => rest)(JSON.parse(readFileSync(SNAP, "utf8")))); } catch { /* first snapshot */ }
+  if (old === body) return;
+  writeFileSync(SNAP, JSON.stringify({ at: Date.now(), ...JSON.parse(body) }));
+  snapDirty = true;
+}
 function publish() {
   try {
-    execFileSync("git", ["add", "evidence"], { stdio: "ignore" });
-    const dirty = execFileSync("git", ["status", "--porcelain", "evidence"], { encoding: "utf8" }).trim();
+    execFileSync("git", ["add", "evidence", "web/snapshot.json"], { stdio: "ignore" });
+    const dirty = execFileSync("git", ["status", "--porcelain", "evidence", "web/snapshot.json"], { encoding: "utf8" }).trim();
     if (!dirty) return;
-    execFileSync("git", ["commit", "-m", "Add round evidence"], { stdio: "ignore" });
+    execFileSync("git", ["commit", "-m", "Add round evidence and data snapshot"], { stdio: "ignore" });
+    snapDirty = false; lastSnapPush = Date.now();
     for (let i = 0; i < 3; i++) {
       try { execFileSync("git", ["pull", "--rebase", "--autostash"], { stdio: "ignore" }); execFileSync("git", ["push"], { stdio: "ignore" }); log("evidence published"); return; }
       catch { /* try again */ }
@@ -89,6 +109,8 @@ const lane = LANES[Math.floor(Date.now() / 21600000) % LANES.length];
 for (;;) {
   try {
     const rounds = await allRounds();
+    try { await writeSnapshot(rounds); } catch (e) { log("snapshot skipped:", e.message); }
+    if (snapDirty && Date.now() - lastSnapPush > 10 * 60000) publish();
     const now = Date.now();
     const left = { 1: 0, 2: 0, 3: 0, 4: 0 };   // open rounds with enough time left, per tier
     let closed = [];
