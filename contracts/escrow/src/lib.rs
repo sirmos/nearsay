@@ -239,9 +239,12 @@ impl Escrow {
             self.fees.insert(job.token.clone(), prev + fee);
             self.record_reputation(&job.seller, &job.buyer, amount);
             Self::log("settled", job_id);
-            let mut paid = Self::pay_safe(&job.token, &job.seller, lead, "nearsay settle");
+            let paid = Self::pay_safe(&job.token, &job.seller, lead, "nearsay settle");
+            // Each split payment is scheduled as soon as it is created and runs on its
+            // own. Returning a joined promise is not allowed on NEAR, so only the lead
+            // payment is returned.
             for (to, share) in shares {
-                paid = paid.and(Self::pay_safe(&job.token, &to, share, "nearsay split"));
+                let _ = Self::pay_safe(&job.token, &to, share, "nearsay split");
             }
             paid
         } else {
