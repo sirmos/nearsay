@@ -12,7 +12,11 @@ const tried = new Set();
 const finished = new Set();
 const hasKey = (acct) => existsSync(join(homedir(), ".near-credentials", "testnet", acct + ".json"));
 const run = (script, args) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env: process.env });
-const tail = (r) => String((r.stderr || "") + (r.stdout || "")).split("\n").filter(Boolean).slice(-3).join(" | ");
+const tail = (r) => {
+  const L = String((r.stdout || "") + "\n" + (r.stderr || "")).split("\n").filter(Boolean);
+  const bad = L.filter((x) => /Error|panic|Exceeded|failed|insufficient|not enough|HTTP/i.test(x) && !/^\s+at /.test(x));
+  return (bad.length ? bad.slice(-2) : L.slice(-3)).join(" | ").slice(0, 500);
+};
 
 export async function processJobs(log, maxJobs = 15) {
   const escrow = need("NS_ESCROW"), token = need("NS_CREDITS"), verifier = need("NS_VERIFIER");
