@@ -34,9 +34,16 @@ const dealer = (...args) => {
 
 const voidTried = new Map();
 const known = new Map();   // finished rounds never change
+// Start from the rounds already saved in web/snapshot.json, so a fresh run does not have to read every old
+// round from the public RPC again (that is what ran into the rate limit once the Arena passed 200 rounds).
+try {
+  const snap = JSON.parse(readFileSync(new URL("../web/snapshot.json", import.meta.url), "utf8"));
+  for (const r of snap.rounds || []) if (r.status === "Settled" || r.status === "Voided") known.set(Number(r.id), r);
+} catch { /* no snapshot yet */ }
 async function allRounds() {
   const out = [];
-  for (let i = 1; i < 2000; i++) {
+  let i = 1;
+  for (; i < 100000; i++) {
     if (known.has(i)) { out.push(known.get(i)); continue; }
     const r = await view(arena, "get_round", { round_id: i });
     if (!r) break;

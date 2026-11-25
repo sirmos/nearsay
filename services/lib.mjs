@@ -14,10 +14,23 @@ export function need(name) {
 
 // Read-only contract call through the public RPC. Returns parsed JSON (or null).
 const RPCS = [RPC, "https://test.rpc.fastnear.com", "https://rpc.testnet.fastnear.com"];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let lastCall = 0;
 export async function view(account, method, args = {}) {
   let last;
-  for (const url of RPCS) {
-    try { return await viewAt(url, account, method, args); } catch (e) { last = e; if (!/fetch failed|ECONN|ETIMEDOUT|HTTP 5|HTTP 4/.test(String(e.message))) throw e; }
+  // Public RPC nodes answer 429 ("too many requests") when a shared GitHub runner asks too often.
+  // Space the calls out a little and, on 429 or a server error, wait and try again.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    for (const url of RPCS) {
+      const gap = Date.now() - lastCall;
+      if (gap < 120) await sleep(120 - gap);
+      lastCall = Date.now();
+      try { return await viewAt(url, account, method, args); } catch (e) {
+        last = e;
+        if (!/fetch failed|ECONN|ETIMEDOUT|HTTP 5|HTTP 4/.test(String(e.message))) throw e;
+      }
+    }
+    await sleep(Math.min(2000 * 2 ** attempt, 30000));
   }
   throw last;
 }
@@ -49,7 +62,13 @@ export function call(contract, method, args, signer, { gas = "100 Tgas", deposit
   return out;
 }
 
+// The first id that does not exist yet. Ids are handed out one after another, so a doubling step plus a
+// binary search finds it in about a dozen calls instead of reading every record from 1.
 export async function nextId(contract, method, key) {
-  for (let i = 1; i < 1000; i++) if ((await view(contract, method, { [key]: i })) === null) return i;
-  throw new Error("too many ids");
+  const has = async (i) => (await view(contract, method, { [key]: i })) !== null;
+  if (!(await has(1))) return 1;
+  let lo = 1, hi = 2;
+  while (await has(hi)) { lo = hi; hi *= 2; if (hi > 1_000_000) throw new Error("too many ids"); }
+  while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (await has(mid)) lo = mid; else hi = mid; }
+  return hi;
 }
